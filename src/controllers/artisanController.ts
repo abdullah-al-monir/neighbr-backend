@@ -48,8 +48,7 @@ const createArtisanProfile = async (
       hourlyRate,
       location,
       availability,
-    } = req.body; // Check if artisan profile already exists
-
+    } = req.body;
     const existingArtisan = await Artisan.findOne({ userId });
     if (existingArtisan) {
       res.status(400).json({
@@ -59,7 +58,7 @@ const createArtisanProfile = async (
       return;
     } // Update user role to artisan
 
-    await User.findByIdAndUpdate(userId, { role: "artisan" }); // Create artisan profile
+    await User.findByIdAndUpdate(userId, { role: "artisan" });
 
     const artisan = await Artisan.create({
       userId,
@@ -108,6 +107,36 @@ const getArtisanProfile = async (
     res.status(200).json({
       success: true,
       artisan,
+    });
+  } catch (error: any) {
+    next(error);
+  }
+};
+
+const getMyArtisanProfile = async (
+  req: CustomRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    console.log(userId)
+    const artisan = await Artisan.findOne({ userId }).populate(
+      "userId",
+      "name email phone avatar verified"
+    );
+
+    if (!artisan) {
+      res.status(404).json({
+        success: false,
+        message: "Artisan profile not found",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: artisan, 
     });
   } catch (error: any) {
     next(error);
@@ -184,23 +213,23 @@ const searchArtisans = async (
       limit,
     } = parseQuery(req.query);
 
-    const pipeline: mongoose.PipelineStage[] = []; 
+    const pipeline: mongoose.PipelineStage[] = [];
 
     // $geoNear MUST be the FIRST stage in the pipeline
     // if (lat && lng && maxDistance) {
-    //   const distanceInMeters = maxDistance * 1000; 
+    //   const distanceInMeters = maxDistance * 1000;
     //   pipeline.push({
     //     $geoNear: {
     //       near: {
     //         type: "Point",
     //         coordinates: [lng, lat],
     //       },
-    //       distanceField: "distance", 
-    //       maxDistance: distanceInMeters, 
-    //       spherical: true, 
+    //       distanceField: "distance",
+    //       maxDistance: distanceInMeters,
+    //       spherical: true,
     //     },
     //   });
-    // } 
+    // }
     // --- 2. Filtering Stage ($match) ---
 
     const matchCriteria: any = { verified: true };
@@ -256,13 +285,13 @@ const searchArtisans = async (
     } // --- 4. Total Count and Pagination --- // Create a pipeline for total count
 
     const totalQueryPipeline = [...pipeline];
-    totalQueryPipeline.push({ $count: "total" }); 
+    totalQueryPipeline.push({ $count: "total" });
     const skip = (page - 1) * limit;
     pipeline.push({ $skip: skip });
-    pipeline.push({ $limit: limit }); 
+    pipeline.push({ $limit: limit });
     pipeline.push({
       $lookup: {
-        from: "users", 
+        from: "users",
         localField: "userId",
         foreignField: "_id",
         as: "userArray",
@@ -285,7 +314,7 @@ const searchArtisans = async (
         hourlyRate: 1,
         verified: 1,
         location: 1,
-        distance: { $ifNull: ["$distance", null] }, 
+        distance: { $ifNull: ["$distance", null] },
         userId: {
           _id: "$userArray._id",
           name: "$userArray.name",
@@ -294,7 +323,7 @@ const searchArtisans = async (
           verified: "$userArray.verified",
         },
       },
-    }); 
+    });
 
     const [artisans, totalResult] = await Promise.all([
       Artisan.aggregate(pipeline),
@@ -346,7 +375,7 @@ const addPortfolio = async (
       images,
       category,
       createdAt: new Date(),
-    } as any); 
+    } as any);
 
     await artisan.save();
 
@@ -431,6 +460,7 @@ const updateAvailability = async (
 export {
   createArtisanProfile,
   getArtisanProfile,
+  getMyArtisanProfile,
   updateArtisanProfile,
   searchArtisans,
   addPortfolio,

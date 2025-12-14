@@ -23,7 +23,7 @@ router.use(authenticate);
 router.post('/', createBookingValidation, createBooking);
 router.get('/my-bookings', getMyBookings);
 router.get('/:id', mongoIdValidation, getBooking);
-router.delete('/:id/cancel', mongoIdValidation, cancelBooking);
+router.put('/:id/cancel', mongoIdValidation, cancelBooking);
 
 // Artisan routes
 router.get('/artisan/bookings', requireArtisan, getArtisanBookings);

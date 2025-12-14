@@ -22,10 +22,6 @@ export const authenticate = async (
       token = req.cookies.token;
     }
 
-    console.log('🔍 Token from header:', req.headers.authorization ? 'exists' : 'missing');
-    console.log('🍪 Token from cookies:', req.cookies?.token ? 'exists' : 'missing');
-    console.log('✅ Using token:', token ? 'found' : 'NOT FOUND');
-
     if (!token) {
       res.status(401).json({
         success: false,

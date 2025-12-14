@@ -6,8 +6,9 @@ import crypto from 'crypto';
 const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
-  sameSite: 'strict' as const,
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  sameSite: 'lax' as const,
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+  path: '/', 
 };
 
 export const register = async (
@@ -18,7 +19,6 @@ export const register = async (
   try {
     const { email, password, name, role, phone, location } = req.body;
 
-    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       res.status(400).json({
@@ -28,10 +28,8 @@ export const register = async (
       return;
     }
 
-    // Generate verification token
     const verificationToken = crypto.randomBytes(32).toString('hex');
 
-    // Create new user
     const user = await User.create({
       email,
       password,
@@ -42,19 +40,14 @@ export const register = async (
       verificationToken,
     });
 
-    // Generate tokens
     const token = generateToken(user._id.toString(), user.role);
     const refreshToken = generateRefreshToken(user._id.toString());
 
-    // Save refresh token
     user.refreshToken = refreshToken;
     await user.save();
 
-    // Set cookie
+    res.cookie('token', token, COOKIE_OPTIONS);
     res.cookie('refreshToken', refreshToken, COOKIE_OPTIONS);
-
-    // TODO: Send verification email
-    // await emailService.sendVerificationEmail(user.email, verificationToken);
 
     res.status(201).json({
       success: true,
@@ -81,7 +74,6 @@ export const login = async (
   try {
     const { email, password } = req.body;
 
-    // Find user with password field
     const user = await User.findOne({ email }).select('+password');
     if (!user) {
       res.status(401).json({
@@ -91,7 +83,6 @@ export const login = async (
       return;
     }
 
-    // Check password
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
       res.status(401).json({
@@ -101,17 +92,18 @@ export const login = async (
       return;
     }
 
-    // Generate tokens
     const token = generateToken(user._id.toString(), user.role);
     const refreshToken = generateRefreshToken(user._id.toString());
 
-    // Save refresh token and update last login
     user.refreshToken = refreshToken;
     user.lastLogin = new Date();
     await user.save();
 
-    // Set cookie
+    // ✅ FIX 3: Set BOTH cookies
+    res.cookie('token', token, COOKIE_OPTIONS);
     res.cookie('refreshToken', refreshToken, COOKIE_OPTIONS);
+
+    console.log('✅ Login successful - cookies set for user:', user._id);
 
     res.status(200).json({
       success: true,
@@ -141,12 +133,12 @@ export const logout = async (
     const userId = req.user?.userId;
 
     if (userId) {
-      // Clear refresh token from database
       await User.findByIdAndUpdate(userId, { $unset: { refreshToken: 1 } });
     }
 
-    // Clear cookie
-    res.clearCookie('refreshToken');
+    // ✅ FIX 4: Clear BOTH cookies
+    res.clearCookie('token', { path: '/' });
+    res.clearCookie('refreshToken', { path: '/' });
 
     res.status(200).json({
       success: true,
@@ -173,7 +165,6 @@ export const refreshToken = async (
       return;
     }
 
-    // Find user with refresh token
     const user = await User.findOne({ refreshToken }).select('+refreshToken');
     if (!user) {
       res.status(401).json({
@@ -183,15 +174,14 @@ export const refreshToken = async (
       return;
     }
 
-    // Generate new tokens
     const newToken = generateToken(user._id.toString(), user.role);
     const newRefreshToken = generateRefreshToken(user._id.toString());
 
-    // Update refresh token
     user.refreshToken = newRefreshToken;
     await user.save();
 
-    // Set new cookie
+    // ✅ FIX 5: Set BOTH new cookies
+    res.cookie('token', newToken, COOKIE_OPTIONS);
     res.cookie('refreshToken', newRefreshToken, COOKIE_OPTIONS);
 
     res.status(200).json({
@@ -247,7 +237,6 @@ export const updateProfile = async (
       return;
     }
 
-    // Update fields
     if (name) user.name = name;
     if (phone) user.phone = phone;
     if (location) user.location = location;
@@ -308,7 +297,6 @@ export const forgotPassword = async (
 
     const user = await User.findOne({ email });
     if (!user) {
-      // Don't reveal if user exists
       res.status(200).json({
         success: true,
         message: 'If the email exists, a reset link has been sent',
@@ -316,14 +304,10 @@ export const forgotPassword = async (
       return;
     }
 
-    // Generate reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
     user.resetPasswordToken = resetToken;
-    user.resetPasswordExpires = new Date(Date.now() + 3600000); // 1 hour
+    user.resetPasswordExpires = new Date(Date.now() + 3600000);
     await user.save();
-
-    // TODO: Send password reset email
-    // await emailService.sendPasswordResetEmail(user.email, resetToken);
 
     res.status(200).json({
       success: true,

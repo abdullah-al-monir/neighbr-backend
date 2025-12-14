@@ -157,10 +157,21 @@ export const getAllUsers = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { page = 1, limit = 20, role, search } = req.query;
+    const { page = 1, limit = 20, role, search, verified } = req.query;
 
     const query: any = {};
-    if (role) query.role = role;
+
+    // Filter by role
+    if (role) {
+      query.role = role;
+    }
+
+    // Filter by verified status
+    if (verified !== undefined && verified !== "all") {
+      query.verified = verified === "true";
+    }
+
+    // Search by name or email
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: "i" } },
@@ -194,17 +205,73 @@ export const getAllUsers = async (
   }
 };
 
+export const updateUserVerification = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { verified } = req.body;
+
+    // Validate input
+    if (typeof verified !== "boolean") {
+      res.status(400).json({
+        success: false,
+        message: "Verified must be a boolean value",
+      });
+      return;
+    }
+
+    // Find and update user
+    const user = await User.findByIdAndUpdate(
+      id,
+      { verified },
+      { new: true, runValidators: true }
+    ).select("-password");
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: user,
+      message: `User ${verified ? "verified" : "unverified"} successfully`,
+    });
+  } catch (error: any) {
+    next(error);
+  }
+};
+
 export const getAllArtisans = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { page = 1, limit = 20, verified, category } = req.query;
+    const { page = 1, limit = 20, verified, category, search } = req.query;
 
     const query: any = {};
-    if (verified !== undefined) query.verified = verified === "true";
-    if (category) query.category = category;
+
+    // Filter by verified status
+    if (verified !== undefined && verified !== "all") {
+      query.verified = verified === "true";
+    }
+
+    // Filter by category
+    if (category) {
+      query.category = category;
+    }
+
+    // Search by business name
+    if (search) {
+      query.businessName = { $regex: search, $options: "i" };
+    }
 
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
 
@@ -226,6 +293,77 @@ export const getAllArtisans = async (
         limit: parseInt(limit as string),
         totalPages: Math.ceil(total / parseInt(limit as string)),
       },
+    });
+  } catch (error: any) {
+    next(error);
+  }
+};
+
+export const updateArtisanVerification = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { verified } = req.body;
+
+    // Validate input
+    if (typeof verified !== "boolean") {
+      res.status(400).json({
+        success: false,
+        message: "Verified must be a boolean value",
+      });
+      return;
+    }
+
+    // Find and update artisan
+    const artisan = await Artisan.findByIdAndUpdate(
+      id,
+      { verified },
+      { new: true, runValidators: true }
+    ).populate("userId", "name email");
+
+    if (!artisan) {
+      res.status(404).json({
+        success: false,
+        message: "Artisan not found",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: artisan,
+      message: `Artisan ${verified ? "verified" : "unverified"} successfully`,
+    });
+  } catch (error: any) {
+    next(error);
+  }
+};
+
+export const deleteArtisan = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    // Find and delete artisan
+    const artisan = await Artisan.findByIdAndDelete(id);
+
+    if (!artisan) {
+      res.status(404).json({
+        success: false,
+        message: "Artisan not found",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Artisan deleted successfully",
     });
   } catch (error: any) {
     next(error);

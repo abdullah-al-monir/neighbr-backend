@@ -1,7 +1,7 @@
-import { Request, Response, NextFunction } from 'express';
-import Booking from '../models/Booking';
-import Artisan from '../models/Artisan';
-import { stripe } from '../config/stripe';
+import { Request, Response, NextFunction } from "express";
+import Booking from "../models/Booking";
+import Artisan from "../models/Artisan";
+import { stripe } from "../config/stripe";
 
 export const createBooking = async (
   req: Request,
@@ -25,7 +25,7 @@ export const createBooking = async (
     if (!artisan) {
       res.status(404).json({
         success: false,
-        message: 'Artisan not found',
+        message: "Artisan not found",
       });
       return;
     }
@@ -33,14 +33,14 @@ export const createBooking = async (
     if (!artisan.verified) {
       res.status(400).json({
         success: false,
-        message: 'Artisan is not verified',
+        message: "Artisan is not verified",
       });
       return;
     }
 
     // Calculate booking duration and amount
-    const startTime = timeSlot.start.split(':');
-    const endTime = timeSlot.end.split(':');
+    const startTime = timeSlot.start.split(":");
+    const endTime = timeSlot.end.split(":");
     const startMinutes = parseInt(startTime[0]) * 60 + parseInt(startTime[1]);
     const endMinutes = parseInt(endTime[0]) * 60 + parseInt(endTime[1]);
     const durationHours = (endMinutes - startMinutes) / 60;
@@ -57,22 +57,22 @@ export const createBooking = async (
       amount,
       location,
       notes,
-      status: 'pending',
-      paymentStatus: 'pending',
+      status: "pending",
+      paymentStatus: "pending",
     });
 
     await booking.populate([
-      { path: 'customerId', select: 'name email phone avatar' },
+      { path: "customerId", select: "name email phone avatar" },
       {
-        path: 'artisanId',
-        select: 'businessName category hourlyRate rating reviewCount',
-        populate: { path: 'userId', select: 'name email phone avatar' },
+        path: "artisanId",
+        select: "businessName category hourlyRate rating reviewCount",
+        populate: { path: "userId", select: "name email phone avatar" },
       },
     ]);
 
     res.status(201).json({
       success: true,
-      message: 'Booking created successfully',
+      message: "Booking created successfully",
       booking,
     });
   } catch (error: any) {
@@ -90,18 +90,18 @@ export const getBooking = async (
     const userId = req.user?.userId;
 
     const booking = await Booking.findById(id).populate([
-      { path: 'customerId', select: 'name email phone avatar' },
+      { path: "customerId", select: "name email phone avatar" },
       {
-        path: 'artisanId',
-        select: 'businessName category hourlyRate rating reviewCount',
-        populate: { path: 'userId', select: 'name email phone avatar' },
+        path: "artisanId",
+        select: "businessName category hourlyRate rating reviewCount",
+        populate: { path: "userId", select: "name email phone avatar" },
       },
     ]);
 
     if (!booking) {
       res.status(404).json({
         success: false,
-        message: 'Booking not found',
+        message: "Booking not found",
       });
       return;
     }
@@ -111,11 +111,11 @@ export const getBooking = async (
     if (
       booking.customerId._id.toString() !== userId &&
       artisan?.userId.toString() !== userId &&
-      req.user?.role !== 'admin'
+      req.user?.role !== "admin"
     ) {
       res.status(403).json({
         success: false,
-        message: 'Not authorized to access this booking',
+        message: "Not authorized to access this booking",
       });
       return;
     }
@@ -136,9 +136,13 @@ export const getMyBookings = async (
 ): Promise<void> => {
   try {
     const userId = req.user?.userId;
+    console.log(userId);
     const { status, page = 1, limit = 20 } = req.query;
 
-    const query: any = { customerId: userId };
+    const query: any = {
+      customerId: userId,
+      status: { $ne: "cancelled" },
+    };
     if (status) {
       query.status = status;
     }
@@ -148,11 +152,11 @@ export const getMyBookings = async (
     const [bookings, total] = await Promise.all([
       Booking.find(query)
         .populate([
-          { path: 'customerId', select: 'name email phone avatar' },
+          { path: "customerId", select: "name email phone avatar" },
           {
-            path: 'artisanId',
-            select: 'businessName category hourlyRate rating reviewCount',
-            populate: { path: 'userId', select: 'name email phone avatar' },
+            path: "artisanId",
+            select: "businessName category hourlyRate rating reviewCount",
+            populate: { path: "userId", select: "name email phone avatar" },
           },
         ])
         .sort({ createdAt: -1 })
@@ -190,7 +194,7 @@ export const getArtisanBookings = async (
     if (!artisan) {
       res.status(404).json({
         success: false,
-        message: 'Artisan profile not found',
+        message: "Artisan profile not found",
       });
       return;
     }
@@ -205,10 +209,10 @@ export const getArtisanBookings = async (
     const [bookings, total] = await Promise.all([
       Booking.find(query)
         .populate([
-          { path: 'customerId', select: 'name email phone avatar' },
+          { path: "customerId", select: "name email phone avatar" },
           {
-            path: 'artisanId',
-            select: 'businessName category hourlyRate rating reviewCount',
+            path: "artisanId",
+            select: "businessName category hourlyRate rating reviewCount",
           },
         ])
         .sort({ scheduledDate: 1 })
@@ -246,26 +250,26 @@ export const updateBookingStatus = async (
     if (!booking) {
       res.status(404).json({
         success: false,
-        message: 'Booking not found',
+        message: "Booking not found",
       });
       return;
     }
 
     // Check authorization (only artisan can update status)
     const artisan = await Artisan.findById(booking.artisanId);
-    if (artisan?.userId.toString() !== userId && req.user?.role !== 'admin') {
+    if (artisan?.userId.toString() !== userId && req.user?.role !== "admin") {
       res.status(403).json({
         success: false,
-        message: 'Not authorized to update this booking',
+        message: "Not authorized to update this booking",
       });
       return;
     }
 
     // Validate status transition
     const validTransitions: Record<string, string[]> = {
-      pending: ['confirmed', 'cancelled'],
-      confirmed: ['in-progress', 'cancelled'],
-      'in-progress': ['completed', 'cancelled'],
+      pending: ["confirmed", "cancelled"],
+      confirmed: ["in-progress", "cancelled"],
+      "in-progress": ["completed", "cancelled"],
       completed: [],
       cancelled: [],
     };
@@ -281,7 +285,7 @@ export const updateBookingStatus = async (
     booking.status = status;
 
     // If completed, update artisan's completed jobs and release escrow
-    if (status === 'completed') {
+    if (status === "completed") {
       await Artisan.findByIdAndUpdate(booking.artisanId, {
         $inc: { completedJobs: 1 },
       });
@@ -292,7 +296,7 @@ export const updateBookingStatus = async (
 
     res.status(200).json({
       success: true,
-      message: 'Booking status updated successfully',
+      message: "Booking status updated successfully",
       booking,
     });
   } catch (error: any) {
@@ -314,7 +318,7 @@ export const cancelBooking = async (
     if (!booking) {
       res.status(404).json({
         success: false,
-        message: 'Booking not found',
+        message: "Booking not found",
       });
       return;
     }
@@ -324,36 +328,36 @@ export const cancelBooking = async (
     if (
       booking.customerId.toString() !== userId &&
       artisan?.userId.toString() !== userId &&
-      req.user?.role !== 'admin'
+      req.user?.role !== "admin"
     ) {
       res.status(403).json({
         success: false,
-        message: 'Not authorized to cancel this booking',
+        message: "Not authorized to cancel this booking",
       });
       return;
     }
 
     // Can only cancel pending or confirmed bookings
-    if (!['pending', 'confirmed'].includes(booking.status)) {
+    if (!["pending", "confirmed"].includes(booking.status)) {
       res.status(400).json({
         success: false,
-        message: 'Cannot cancel booking in current status',
+        message: "Cannot cancel booking in current status",
       });
       return;
     }
 
-    booking.status = 'cancelled';
+    booking.status = "cancelled";
     booking.cancellationReason = reason;
 
     // Refund if payment was made
-    if (booking.paymentStatus === 'paid' && booking.paymentIntentId) {
+    if (booking.paymentStatus === "paid" && booking.paymentIntentId) {
       try {
         await stripe.refunds.create({
           payment_intent: booking.paymentIntentId,
         });
-        booking.paymentStatus = 'refunded';
+        booking.paymentStatus = "refunded";
       } catch (stripeError: any) {
-        console.error('Stripe refund error:', stripeError);
+        console.error("Stripe refund error:", stripeError);
       }
     }
 
@@ -361,7 +365,7 @@ export const cancelBooking = async (
 
     res.status(200).json({
       success: true,
-      message: 'Booking cancelled successfully',
+      message: "Booking cancelled successfully",
       booking,
     });
   } catch (error: any) {
