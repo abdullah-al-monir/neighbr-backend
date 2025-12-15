@@ -403,6 +403,87 @@ export const verifyArtisan = async (
   }
 };
 
+export const getAllBookings = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { page = 1, limit = 20, status, search } = req.query;
+
+    const query: any = {};
+    if (status) query.status = status;
+    if (search) {
+      query.$or = [
+        { serviceType: { $regex: search, $options: "i" } },
+        { specialRequests: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+
+    const [bookings, total] = await Promise.all([
+      Booking.find(query)
+        .populate("customerId", "name email phone avatar")
+        .populate(
+          "artisanId",
+          "businessName category hourlyRate rating reviewCount"
+        )
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit as string)),
+      Booking.countDocuments(query),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: bookings,
+      pagination: {
+        total,
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        totalPages: Math.ceil(total / parseInt(limit as string)),
+      },
+    });
+  } catch (error: any) {
+    next(error);
+  }
+};
+
+export const getBookingById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const booking = await Booking.findById(id).populate([
+      { path: "customerId", select: "name email phone avatar" },
+      {
+        path: "artisanId",
+        select: "businessName category hourlyRate rating reviewCount",
+        populate: { path: "userId", select: "name email phone avatar" },
+      },
+    ]);
+
+    if (!booking) {
+      res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: booking,
+    });
+  } catch (error: any) {
+    next(error);
+  }
+};
+
 export const getAllTransactions = async (
   req: Request,
   res: Response,

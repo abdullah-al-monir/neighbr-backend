@@ -120,7 +120,7 @@ const getMyArtisanProfile = async (
 ): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    console.log(userId)
+    console.log(userId);
     const artisan = await Artisan.findOne({ userId }).populate(
       "userId",
       "name email phone avatar verified"
@@ -136,7 +136,7 @@ const getMyArtisanProfile = async (
 
     res.status(200).json({
       success: true,
-      data: artisan, 
+      data: artisan,
     });
   } catch (error: any) {
     next(error);
@@ -422,6 +422,32 @@ const deletePortfolio = async (
   }
 };
 
+const getAvailability = async (
+  req: CustomRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+
+    const artisan = await Artisan.findOne({ userId });
+    if (!artisan) {
+      res.status(404).json({
+        success: false,
+        message: "Artisan profile not found",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      availability: artisan.availability,
+    });
+  } catch (error: any) {
+    next(error);
+  }
+};
+
 const updateAvailability = async (
   req: CustomRequest,
   res: Response,
@@ -466,5 +492,6 @@ export {
   addPortfolio,
   deletePortfolio,
   updateAvailability,
+  getAvailability,
 };
 // Removed getNearbyArtisans as its logic is merged into searchArtisans.

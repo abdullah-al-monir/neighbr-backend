@@ -8,6 +8,7 @@ import {
   deletePortfolio,
   updateAvailability,
   getMyArtisanProfile,
+  getAvailability,
   // getNearbyArtisans,
 } from "../controllers/artisanController";
 import { authenticate } from "../middleware/auth";
@@ -23,11 +24,9 @@ const router = express.Router();
 
 // Public routes
 router.get("/search", searchArtisansValidation, searchArtisans);
-// router.get('/nearby', getNearbyArtisans);
-router.get("/:id", mongoIdValidation, getArtisanProfile);
 
 // Protected artisan routes
-router.get("/my-profile",authenticate, getMyArtisanProfile);
+router.get("/my-profile", authenticate, getMyArtisanProfile);
 
 router.post(
   "/profile",
@@ -43,6 +42,11 @@ router.post(
   addPortfolioValidation,
   addPortfolio
 );
+
+router.get("/availability", authenticate, requireArtisan, getAvailability);
+
+// router.get('/nearby', getNearbyArtisans);
+router.get("/:id", mongoIdValidation, getArtisanProfile);
 router.delete(
   "/portfolio/:portfolioId",
   authenticate,

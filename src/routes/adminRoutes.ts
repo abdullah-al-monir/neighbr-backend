@@ -12,6 +12,8 @@ import {
   updateUserVerification,
   updateArtisanVerification,
   deleteArtisan,
+  getAllBookings,
+  getBookingById,
 } from "../controllers/adminController";
 import { authenticate } from "../middleware/auth";
 import { requireAdmin } from "../middleware/roleCheck";
@@ -37,7 +39,16 @@ router.delete("/users/:id", mongoIdValidation, deleteUser);
 // Artisan Management
 router.get("/artisans", getAllArtisans);
 router.put("/artisans/:id/verify", mongoIdValidation, verifyArtisan);
+router.patch(
+  "/artisans/:id/verify",
+  mongoIdValidation,
+  updateArtisanVerification
+);
 router.delete("/artisans/:id", deleteArtisan);
+
+// Booking Management
+router.get("/bookings", getAllBookings);
+router.get("/bookings/:id", mongoIdValidation, getBookingById);
 
 // Transaction Management
 router.get("/transactions", getAllTransactions);
