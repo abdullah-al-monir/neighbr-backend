@@ -26,12 +26,48 @@ const app = express();
 // Connect to database
 connectDatabase();
 
-// Security middleware
-app.use(helmet());
+// ------------------------------------------------------------------------
+// ✅ CRITICAL: CORS MUST BE FIRST - Before any other middleware
+// ------------------------------------------------------------------------
+const corsOptions = {
+  origin: config.frontendUrl || "https://neighbr-six.vercel.app",
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  exposedHeaders: ["Set-Cookie"],
+  maxAge: 86400, // 24 hours
+};
+
+app.use(cors(corsOptions));
+
+// Handle preflight requests explicitly for all routes
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    res.header(
+      "Access-Control-Allow-Origin",
+      config.frontendUrl || "https://neighbr-six.vercel.app"
+    );
+    res.header(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+    );
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization, X-Requested-With"
+    );
+    res.header("Access-Control-Allow-Credentials", "true");
+    return res.sendStatus(200);
+  }
+  next();
+});
+
+// ------------------------------------------------------------------------
+// ✅ Security middleware (Configure Helmet to not block CORS)
+// ------------------------------------------------------------------------
 app.use(
-  cors({
-    origin: config.frontendUrl,
-    credentials: true,
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginEmbedderPolicy: false,
   })
 );
 
@@ -44,20 +80,20 @@ app.use(cookieParser());
 app.use(compression());
 
 // ------------------------------------------------------------------------
-// ✅ STATIC FILE SERVING FIX (Place this before rate limiting and routes)
+// ✅ STATIC FILE SERVING
 // ------------------------------------------------------------------------
-
-const imagesDir = path.join(__dirname, '..', 'public', 'uploads', 'images');
-app.use('/api/images', express.static(imagesDir, {
-  // @ts-ignore
-  setHeaders: (res, filePath) => {
-    res.setHeader('Access-Control-Allow-Origin', config.frontendUrl || '*');
-    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  }
-}));
+const imagesDir = path.join(__dirname, "..", "public", "uploads", "images");
+app.use(
+  "/api/images",
+  express.static(imagesDir, {
+    setHeaders: (res) => {
+      res.setHeader("Access-Control-Allow-Origin", config.frontendUrl || "*");
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    },
+  })
+);
 
 logger.info(`Serving static images from: ${imagesDir} at path: /api/images`);
-// ------------------------------------------------------------------------
 
 // Logging middleware
 if (config.nodeEnv === "development") {
@@ -70,8 +106,13 @@ if (config.nodeEnv === "development") {
   );
 }
 
-// Rate limiting
-app.use("/api", apiLimiter);
+// Rate limiting (consider disabling for OPTIONS)
+app.use("/api", (req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return next();
+  }
+  return apiLimiter(req, res, next);
+});
 
 // Health check
 // @ts-ignore
@@ -95,19 +136,24 @@ app.use((req, res) => {
     message: "Route not found",
   });
 });
+
 // Error handling middleware
 app.use(errorHandler);
 
-// Start server
-const PORT = config.port;
-app.listen(PORT, () => {
-  logger.info(`Server running in ${config.nodeEnv} mode on port ${PORT}`);
-});
+// Start server (only in non-serverless environment)
+if (config.nodeEnv !== "production" || !process.env.VERCEL) {
+  const PORT = config.port;
+  app.listen(PORT, () => {
+    logger.info(`Server running in ${config.nodeEnv} mode on port ${PORT}`);
+  });
+}
 
 // Handle unhandled promise rejections
 process.on("unhandledRejection", (err: Error) => {
   logger.error("Unhandled Rejection:", err);
-  process.exit(1);
+  if (config.nodeEnv !== "production") {
+    process.exit(1);
+  }
 });
 
 export default app;
