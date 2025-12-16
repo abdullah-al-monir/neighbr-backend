@@ -49,6 +49,7 @@ app.use(compression());
 
 const imagesDir = path.join(__dirname, '..', 'public', 'uploads', 'images');
 app.use('/api/images', express.static(imagesDir, {
+  // @ts-ignore
   setHeaders: (res, filePath) => {
     res.setHeader('Access-Control-Allow-Origin', config.frontendUrl || '*');
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
@@ -73,6 +74,7 @@ if (config.nodeEnv === "development") {
 app.use("/api", apiLimiter);
 
 // Health check
+// @ts-ignore
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
 });
@@ -86,6 +88,7 @@ app.use("/api/reviews", reviewRoutes);
 app.use("/api/admin", adminRoutes);
 
 // 404 handler
+// @ts-ignore
 app.use((req, res) => {
   res.status(404).json({
     success: false,

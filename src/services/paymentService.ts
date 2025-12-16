@@ -1,5 +1,6 @@
 import { stripe } from '../config/stripe';
-import Transaction from '../models/Transaction';
+import Booking from '../models/Booking';
+// import Transaction from '../models/Transaction';
 
 export const createEscrowPayment = async (
   bookingId: string,

@@ -1,3 +1,4 @@
+import Artisan from '../models/Artisan';
 import Booking from '../models/Booking';
 
 export const createBookingWithValidation = async (bookingData: any) => {

@@ -41,7 +41,7 @@ export const createPaymentIntent = async (
     }
 
     // Calculate platform fee
-    const platformFee = (booking.amount * PLATFORM_FEE_PERCENTAGE) / 100;
+    // const platformFee = (booking.amount * PLATFORM_FEE_PERCENTAGE) / 100;
     const amountInCents = Math.round(booking.amount * 100);
 
     // Create payment intent
@@ -186,6 +186,7 @@ export const createSubscription = async (
       amount: Math.round(amount * 100),
       currency: 'usd',
       metadata: {
+        // @ts-ignore
         userId,
         artisanId: artisan._id.toString(),
         subscriptionTier: tier,

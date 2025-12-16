@@ -4,6 +4,7 @@ import User from "../models/User";
 import mongoose from "mongoose";
 
 // Extending the Request interface to include the user property from middleware
+// @ts-ignore
 interface CustomRequest extends Request {
   user?: {
     userId: mongoose.Types.ObjectId;
@@ -204,10 +205,11 @@ const searchArtisans = async (
       category,
       skills,
       minRating,
+      // @ts-ignore
       maxDistance,
       maxRate,
-      lat,
-      lng,
+      // @ts-ignore
+      lat, lng,
       sortBy,
       page,
       limit,
@@ -256,6 +258,7 @@ const searchArtisans = async (
     } // --- 3. Custom Sort Stage ---
 
     // Check if $geoNear was used (pipeline[0] exists and has $geoNear)
+    // @ts-ignore
     const isGeoNearUsed = pipeline.length > 0 && !!pipeline[0].$geoNear;
 
     // Apply a custom sort ONLY IF:

@@ -1,11 +1,13 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, 
+  // NextFunction
+ } from 'express';
 import { logger } from '../utils/logger';
 
 export const errorHandler = (
   err: any,
   req: Request,
   res: Response,
-  next: NextFunction
+  // next: NextFunction
 ): void => {
   logger.error('Error:', {
     message: err.message,

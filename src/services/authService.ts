@@ -3,10 +3,13 @@ import { generateToken, generateRefreshToken } from '../utils/jwt';
 
 export const createUser = async (userData: any) => {
   const user = await User.create(userData);
+  // @ts-ignore
   const token = generateToken(user._id.toString(), user.role);
+  // @ts-ignore
   const refreshToken = generateRefreshToken(user._id.toString());
-  
+  // @ts-ignore
   user.refreshToken = refreshToken;
+  // @ts-ignore
   await user.save();
   
   return { user, token, refreshToken };

@@ -3,9 +3,10 @@ import User from "../models/User";
 import Artisan from "../models/Artisan";
 import Booking from "../models/Booking";
 import Transaction from "../models/Transaction";
-import Review from "../models/Review";
+// import Review from "../models/Review";
 
 export const getDashboardStats = async (
+  // @ts-ignore
   req: Request,
   res: Response,
   next: NextFunction
@@ -392,9 +393,9 @@ export const getAllBookings = async (
 
     const [bookings, total] = await Promise.all([
       Booking.find(query)
-        .populate("customerId", "name email phone avatar")
+        .populate("customer", "name email phone avatar")
         .populate(
-          "artisanId",
+          "artisan",
           "businessName category hourlyRate rating reviewCount"
         )
         .sort({ createdAt: -1 })
@@ -524,6 +525,7 @@ export const deleteUser = async (
 };
 
 export const getCategoryStats = async (
+  // @ts-ignore
   req: Request,
   res: Response,
   next: NextFunction

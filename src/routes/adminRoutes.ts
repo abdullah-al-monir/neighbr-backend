@@ -4,7 +4,6 @@ import {
   getRevenueAnalytics,
   getAllUsers,
   getAllArtisans,
-  verifyArtisan,
   getAllTransactions,
   deleteUser,
   getCategoryStats,

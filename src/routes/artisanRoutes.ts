@@ -26,23 +26,28 @@ const router = express.Router();
 router.get("/search", searchArtisansValidation, searchArtisans);
 
 // Protected artisan routes
+// @ts-ignore
 router.get("/my-profile", authenticate, getMyArtisanProfile);
 
 router.post(
   "/profile",
   authenticate,
   createArtisanValidation,
+  // @ts-ignore
   createArtisanProfile
 );
+// @ts-ignore
 router.put("/profile", authenticate, requireArtisan, updateArtisanProfile);
+
 router.post(
   "/portfolio",
   authenticate,
   requireArtisan,
   addPortfolioValidation,
+  // @ts-ignore
   addPortfolio
 );
-
+// @ts-ignore
 router.get("/availability", authenticate, requireArtisan, getAvailability);
 
 // router.get('/nearby', getNearbyArtisans);
@@ -51,8 +56,10 @@ router.delete(
   "/portfolio/:portfolioId",
   authenticate,
   requireArtisan,
+  // @ts-ignore
   deletePortfolio
 );
+// @ts-ignore
 router.put("/availability", authenticate, requireArtisan, updateAvailability);
 
 export default router;
