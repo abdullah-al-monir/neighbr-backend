@@ -26,7 +26,7 @@ const app = express();
 // ========================================
 // This tells Express to trust the X-Forwarded-* headers from Render's proxy
 // Place this BEFORE any middleware that uses req.ip (like rate limiting)
-app.set('trust proxy', 1);
+app.set("trust proxy", 1);
 
 // Connect to database
 connectDatabase();
@@ -39,9 +39,12 @@ app.use(
       config.frontendUrl,
       "http://localhost:3000",
       "https://neighbr-six.vercel.app",
-      "https://neighbr-v4f7.onrender.com/",
+      "https://neighbr-v4f7.onrender.com",
     ],
     credentials: true,
+    optionsSuccessStatus: 200,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
