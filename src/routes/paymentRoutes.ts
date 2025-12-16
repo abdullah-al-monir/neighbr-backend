@@ -16,7 +16,6 @@ import {
 
 const router = express.Router();
 
-// Webhook route (no auth needed, verified by Stripe signature)
 router.post(
   '/webhook',
   express.raw({ type: 'application/json' }),

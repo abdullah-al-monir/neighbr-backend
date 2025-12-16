@@ -38,7 +38,6 @@ router.delete("/users/:id", mongoIdValidation, deleteUser);
 
 // Artisan Management
 router.get("/artisans", getAllArtisans);
-router.put("/artisans/:id/verify", mongoIdValidation, verifyArtisan);
 router.patch(
   "/artisans/:id/verify",
   mongoIdValidation,

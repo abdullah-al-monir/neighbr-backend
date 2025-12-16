@@ -370,38 +370,6 @@ export const deleteArtisan = async (
   }
 };
 
-export const verifyArtisan = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const { verified } = req.body;
-
-    const artisan = await Artisan.findByIdAndUpdate(
-      id,
-      { verified },
-      { new: true }
-    ).populate("userId", "name email");
-
-    if (!artisan) {
-      res.status(404).json({
-        success: false,
-        message: "Artisan not found",
-      });
-      return;
-    }
-
-    res.status(200).json({
-      success: true,
-      message: `Artisan ${verified ? "verified" : "unverified"} successfully`,
-      artisan,
-    });
-  } catch (error: any) {
-    next(error);
-  }
-};
 
 export const getAllBookings = async (
   req: Request,

@@ -53,7 +53,8 @@ export const createPaymentIntent = async (
         customerId: userId,
         artisanId: booking.artisanId.toString(),
       },
-      application_fee_amount: Math.round(platformFee * 100),
+      // Remove application_fee_amount for now - requires Stripe Connect
+      // application_fee_amount: Math.round(platformFee * 100),
     });
 
     // Update booking with payment intent
@@ -76,8 +77,10 @@ export const confirmPayment = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const userId = req.user?.userId;
     const { paymentIntentId } = req.body;
 
+    // Retrieve payment intent from Stripe
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
 
     if (paymentIntent.status === 'succeeded') {
@@ -88,6 +91,15 @@ export const confirmPayment = async (
         res.status(404).json({
           success: false,
           message: 'Booking not found',
+        });
+        return;
+      }
+
+      // Verify the user owns this booking
+      if (booking.customerId.toString() !== userId) {
+        res.status(403).json({
+          success: false,
+          message: 'Not authorized',
         });
         return;
       }
@@ -110,6 +122,16 @@ export const confirmPayment = async (
         status: 'completed',
       });
 
+      // Populate booking details for response
+      await booking.populate([
+        { path: 'customerId', select: 'name email phone avatar' },
+        {
+          path: 'artisanId',
+          select: 'businessName category hourlyRate rating reviewCount',
+          populate: { path: 'userId', select: 'name email phone avatar' },
+        },
+      ]);
+
       res.status(200).json({
         success: true,
         message: 'Payment confirmed',
@@ -119,6 +141,7 @@ export const confirmPayment = async (
       res.status(400).json({
         success: false,
         message: 'Payment not successful',
+        status: paymentIntent.status,
       });
     }
   } catch (error: any) {
@@ -133,7 +156,7 @@ export const createSubscription = async (
 ): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    const { tier } = req.body; // 'basic' or 'premium'
+    const { tier } = req.body;
 
     const artisan = await Artisan.findOne({ userId });
     if (!artisan) {
@@ -202,11 +225,20 @@ export const confirmSubscription = async (
         return;
       }
 
+      // Verify the user owns this artisan profile
+      if (artisan.userId.toString() !== userId) {
+        res.status(403).json({
+          success: false,
+          message: 'Not authorized',
+        });
+        return;
+      }
+
       // Update artisan subscription
       artisan.subscriptionTier = subscriptionTier as 'basic' | 'premium';
       artisan.subscriptionExpiresAt = new Date(
         Date.now() + 30 * 24 * 60 * 60 * 1000
-      ); // 30 days
+      );
       await artisan.save();
 
       // Create transaction record
@@ -237,29 +269,36 @@ export const confirmSubscription = async (
   }
 };
 
+// OPTIONAL webhook handler - only use if you set up webhooks
 export const webhookHandler = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   const sig = req.headers['stripe-signature'] as string;
 
+  // If no webhook secret is configured, skip webhook verification
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    console.log('Webhook secret not configured, skipping webhook');
+    res.status(200).json({ received: true });
+    return;
+  }
+
   try {
     const event = stripe.webhooks.constructEvent(
       req.body,
       sig,
-      process.env.STRIPE_WEBHOOK_SECRET as string
+      process.env.STRIPE_WEBHOOK_SECRET
     );
 
     switch (event.type) {
       case 'payment_intent.succeeded':
         const paymentIntent = event.data.object;
-        // Handle successful payment
         console.log('Payment succeeded:', paymentIntent.id);
+        // Additional handling if needed
         break;
 
       case 'payment_intent.payment_failed':
         const failedIntent = event.data.object;
-        // Handle failed payment
         const booking = await Booking.findOne({
           paymentIntentId: failedIntent.id,
         });

@@ -106,7 +106,7 @@ const getArtisanProfile = async (
 
     res.status(200).json({
       success: true,
-      artisan,
+      data: artisan,
     });
   } catch (error: any) {
     next(error);
