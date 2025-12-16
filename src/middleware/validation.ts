@@ -1,5 +1,5 @@
-import { Request, Response, NextFunction } from 'express';
-import { body, param, query, validationResult } from 'express-validator';
+import { Request, Response, NextFunction } from "express";
+import { body, param, query, validationResult } from "express-validator";
 
 // Middleware to check validation results
 export const validate = (req: Request, res: Response, next: NextFunction) => {
@@ -7,7 +7,7 @@ export const validate = (req: Request, res: Response, next: NextFunction) => {
   if (!errors.isEmpty()) {
     res.status(400).json({
       success: false,
-      message: 'Validation error',
+      message: "Validation error",
       errors: errors.array(),
     });
     return;
@@ -17,172 +17,183 @@ export const validate = (req: Request, res: Response, next: NextFunction) => {
 
 // Auth validation
 export const registerValidation = [
-  body('email').isEmail().withMessage('Valid email is required'),
-  body('password')
+  body("email").isEmail().withMessage("Valid email is required"),
+  body("password")
     .isLength({ min: 8 })
-    .withMessage('Password must be at least 8 characters'),
-  body('name')
+    .withMessage("Password must be at least 8 characters"),
+  body("name")
     .isLength({ min: 2, max: 50 })
-    .withMessage('Name must be 2-50 characters'),
-  body('role')
-    .isIn(['customer', 'artisan'])
-    .withMessage('Role must be customer or artisan'),
-  body('location.address').notEmpty().withMessage('Address is required'),
-  body('location.city').notEmpty().withMessage('City is required'),
-  body('location.postalCode').notEmpty().withMessage('Postal code is required'),
-  body('location.coordinates')
+    .withMessage("Name must be 2-50 characters"),
+  body("role")
+    .isIn(["customer", "artisan"])
+    .withMessage("Role must be customer or artisan"),
+  body("location.address").notEmpty().withMessage("Address is required"),
+  body("location.city").notEmpty().withMessage("City is required"),
+  body("location.postalCode").notEmpty().withMessage("Postal code is required"),
+  body("location.coordinates")
     .isArray({ min: 2, max: 2 })
-    .withMessage('Coordinates must be [longitude, latitude]'),
+    .withMessage("Coordinates must be [longitude, latitude]"),
   validate,
 ];
 
 export const loginValidation = [
-  body('email').isEmail().withMessage('Valid email is required'),
-  body('password').notEmpty().withMessage('Password is required'),
+  body("email").isEmail().withMessage("Valid email is required"),
+  body("password").notEmpty().withMessage("Password is required"),
   validate,
 ];
 
 // Artisan validation
 export const createArtisanValidation = [
-  body('businessName')
+  body("businessName")
     .isLength({ min: 2, max: 100 })
-    .withMessage('Business name must be 2-100 characters'),
-  body('category')
+    .withMessage("Business name must be 2-100 characters"),
+  body("category")
     .isIn([
-      'baker',
-      'tailor',
-      'carpenter',
-      'electrician',
-      'plumber',
-      'painter',
-      'mechanic',
-      'gardener',
-      'cleaner',
-      'other',
+      "baker",
+      "tailor",
+      "carpenter",
+      "electrician",
+      "plumber",
+      "painter",
+      "mechanic",
+      "gardener",
+      "cleaner",
+      "cook",
+      "tutor",
+      "musician",
+      "artist",
+      "photographer",
+      "writer",
+      "dancer",
+      "singer",
+      "actor",
+      "model",
+      "chef",
+      "nurse",
+      "therapist",
+      "other",
     ])
-    .withMessage('Invalid category'),
-  body('skills')
+    .withMessage("Invalid category"),
+  body("skills")
     .isArray({ min: 1, max: 20 })
-    .withMessage('Must have 1-20 skills'),
-  body('bio')
+    .withMessage("Must have 1-20 skills"),
+  body("bio")
     .isLength({ min: 50, max: 1000 })
-    .withMessage('Bio must be 50-1000 characters'),
-  body('hourlyRate')
+    .withMessage("Bio must be 50-1000 characters"),
+  body("hourlyRate")
     .isFloat({ min: 5, max: 1000 })
-    .withMessage('Hourly rate must be $5-$1000'),
-  body('location.address').notEmpty().withMessage('Address is required'),
-  body('location.coordinates')
+    .withMessage("Hourly rate must be $5-$1000"),
+  body("location.address").notEmpty().withMessage("Address is required"),
+  body("location.coordinates")
     .isArray({ min: 2, max: 2 })
-    .withMessage('Coordinates required'),
-  body('location.serviceRadius')
+    .withMessage("Coordinates required"),
+  body("location.serviceRadius")
     .isFloat({ min: 1, max: 50 })
-    .withMessage('Service radius must be 1-50km'),
+    .withMessage("Service radius must be 1-50km"),
   validate,
 ];
 
 // Booking validation
 export const createBookingValidation = [
-  body('artisanId').isMongoId().withMessage('Valid artisan ID required'),
-  body('serviceType').notEmpty().withMessage('Service type is required'),
-  body('description')
+  body("artisanId").isMongoId().withMessage("Valid artisan ID required"),
+  body("serviceType").notEmpty().withMessage("Service type is required"),
+  body("description")
     .isLength({ min: 10, max: 1000 })
-    .withMessage('Description must be 10-1000 characters'),
-  body('scheduledDate')
+    .withMessage("Description must be 10-1000 characters"),
+  body("scheduledDate")
     .isISO8601()
-    .withMessage('Valid date required')
+    .withMessage("Valid date required")
     .custom((value) => {
       if (new Date(value) <= new Date()) {
-        throw new Error('Scheduled date must be in the future');
+        throw new Error("Scheduled date must be in the future");
       }
       return true;
     }),
-  body('timeSlot.start')
+  body("timeSlot.start")
     .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
-    .withMessage('Valid start time required (HH:mm)'),
-  body('timeSlot.end')
+    .withMessage("Valid start time required (HH:mm)"),
+  body("timeSlot.end")
     .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
-    .withMessage('Valid end time required (HH:mm)'),
-  body('location.address').notEmpty().withMessage('Address is required'),
-  body('location.coordinates')
+    .withMessage("Valid end time required (HH:mm)"),
+  body("location.address").notEmpty().withMessage("Address is required"),
+  body("location.coordinates")
     .isArray({ min: 2, max: 2 })
-    .withMessage('Coordinates required'),
+    .withMessage("Coordinates required"),
   validate,
 ];
 
 // Review validation
 export const createReviewValidation = [
-  body('bookingId').isMongoId().withMessage('Valid booking ID required'),
-  body('rating')
-    .isInt({ min: 1, max: 5 })
-    .withMessage('Rating must be 1-5'),
-  body('comment')
+  body("bookingId").isMongoId().withMessage("Valid booking ID required"),
+  body("rating").isInt({ min: 1, max: 5 }).withMessage("Rating must be 1-5"),
+  body("comment")
     .isLength({ min: 10, max: 1000 })
-    .withMessage('Comment must be 10-1000 characters'),
-  body('images')
+    .withMessage("Comment must be 10-1000 characters"),
+  body("images")
     .optional()
     .isArray({ max: 5 })
-    .withMessage('Maximum 5 images allowed'),
+    .withMessage("Maximum 5 images allowed"),
   validate,
 ];
 
 // Portfolio validation
 export const addPortfolioValidation = [
-  body('title')
+  body("title")
     .isLength({ min: 3, max: 100 })
-    .withMessage('Title must be 3-100 characters'),
-  body('description')
+    .withMessage("Title must be 3-100 characters"),
+  body("description")
     .isLength({ min: 10, max: 1000 })
-    .withMessage('Description must be 10-1000 characters'),
-  body('images')
+    .withMessage("Description must be 10-1000 characters"),
+  body("images")
     .isArray({ min: 1, max: 10 })
-    .withMessage('Must have 1-10 images'),
-  body('category').notEmpty().withMessage('Category is required'),
+    .withMessage("Must have 1-10 images"),
+  body("category").notEmpty().withMessage("Category is required"),
   validate,
 ];
 
 // Search validation
 export const searchArtisansValidation = [
-  query('page').optional().isInt({ min: 1 }).withMessage('Page must be >= 1'),
-  query('limit')
+  query("page").optional().isInt({ min: 1 }).withMessage("Page must be >= 1"),
+  query("limit")
     .optional()
     .isInt({ min: 1, max: 100 })
-    .withMessage('Limit must be 1-100'),
-  query('minRating')
+    .withMessage("Limit must be 1-100"),
+  query("minRating")
     .optional()
     .isFloat({ min: 0, max: 5 })
-    .withMessage('Rating must be 0-5'),
-  query('maxDistance')
+    .withMessage("Rating must be 0-5"),
+  query("maxDistance")
     .optional()
     .isFloat({ min: 1, max: 50 })
-    .withMessage('Distance must be 1-50km'),
-  query('maxRate')
+    .withMessage("Distance must be 1-50km"),
+  query("maxRate")
     .optional()
     .isFloat({ min: 5, max: 1000 })
-    .withMessage('Rate must be 5-1000'),
+    .withMessage("Rate must be 5-1000"),
   validate,
 ];
 
 // MongoDB ID validation
 export const mongoIdValidation = [
-  param('id').isMongoId().withMessage('Valid ID required'),
+  param("id").isMongoId().withMessage("Valid ID required"),
   validate,
 ];
 
 // Payment validation
 export const createPaymentIntentValidation = [
-  body('bookingId').isMongoId().withMessage('Valid booking ID required'),
+  body("bookingId").isMongoId().withMessage("Valid booking ID required"),
   validate,
 ];
 
 export const confirmPaymentValidation = [
-  body('paymentIntentId').notEmpty().withMessage('Payment intent ID required'),
+  body("paymentIntentId").notEmpty().withMessage("Payment intent ID required"),
   validate,
 ];
 
 // Subscription validation
 export const createSubscriptionValidation = [
-  body('tier')
-    .isIn(['basic', 'premium'])
-    .withMessage('Tier must be basic or premium'),
+  body("tier")
+    .isIn(["basic", "premium"])
+    .withMessage("Tier must be basic or premium"),
   validate,
 ];
