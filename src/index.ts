@@ -1,5 +1,3 @@
-// app.ts or index.ts (Backend Server)
-
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -22,6 +20,13 @@ import reviewRoutes from "./routes/reviewRoutes";
 import adminRoutes from "./routes/adminRoutes";
 
 const app = express();
+
+// ========================================
+// ✅ TRUST PROXY - Must be FIRST!
+// ========================================
+// This tells Express to trust the X-Forwarded-* headers from Render's proxy
+// Place this BEFORE any middleware that uses req.ip (like rate limiting)
+app.set('trust proxy', 1);
 
 // Connect to database
 connectDatabase();
@@ -77,7 +82,7 @@ if (config.nodeEnv === "development") {
   );
 }
 
-// Rate limiting
+// Rate limiting (now works correctly with trust proxy enabled)
 app.use("/api", apiLimiter);
 
 // Health check
@@ -100,6 +105,7 @@ app.use((req, res) => {
     message: "Route not found",
   });
 });
+
 // Error handling middleware
 app.use(errorHandler);
 
