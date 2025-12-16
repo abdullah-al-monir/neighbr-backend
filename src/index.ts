@@ -33,7 +33,7 @@ app.use(
     origin: [
       config.frontendUrl,
       "http://localhost:3000",
-      "http://neighbr-six.vercel.app",
+      "https://neighbr-six.vercel.app",
       "https://neighbr-v4f7.onrender.com/",
     ],
     credentials: true,
