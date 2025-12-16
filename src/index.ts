@@ -26,20 +26,20 @@ const app = express();
 // Connect to database
 connectDatabase();
 
+// Security middleware
+app.use(helmet());
 app.use(
   cors({
     origin: [
-      "http://localhost:3000",
-      "https://neighbr-v4f7.onrender.com",
-      "https://neighbr-six.vercel.app",
       config.frontendUrl,
+      "http://localhost:3000",
+      "http://neighbr-six.vercel.app",
+      "https://neighbr-v4f7.onrender.com/",
     ],
     credentials: true,
   })
 );
 
-// Security middleware
-app.use(helmet());
 // Body parsing middleware
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
@@ -49,13 +49,14 @@ app.use(cookieParser());
 app.use(compression());
 
 // ------------------------------------------------------------------------
-// ✅ STATIC FILE SERVING
+// ✅ STATIC FILE SERVING FIX (Place this before rate limiting and routes)
 // ------------------------------------------------------------------------
+
 const imagesDir = path.join(__dirname, "..", "public", "uploads", "images");
 app.use(
   "/api/images",
   express.static(imagesDir, {
-    setHeaders: (res) => {
+    setHeaders: (res, filePath) => {
       res.setHeader("Access-Control-Allow-Origin", config.frontendUrl || "*");
       res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
     },
@@ -63,6 +64,7 @@ app.use(
 );
 
 logger.info(`Serving static images from: ${imagesDir} at path: /api/images`);
+// ------------------------------------------------------------------------
 
 // Logging middleware
 if (config.nodeEnv === "development") {
@@ -75,13 +77,8 @@ if (config.nodeEnv === "development") {
   );
 }
 
-// Rate limiting (consider disabling for OPTIONS)
-app.use("/api", (req, res, next) => {
-  if (req.method === "OPTIONS") {
-    return next();
-  }
-  return apiLimiter(req, res, next);
-});
+// Rate limiting
+app.use("/api", apiLimiter);
 
 // Health check
 app.get("/health", (req, res) => {
@@ -103,16 +100,19 @@ app.use((req, res) => {
     message: "Route not found",
   });
 });
-
 // Error handling middleware
 app.use(errorHandler);
+
+// Start server
+const PORT = config.port;
+app.listen(PORT, () => {
+  logger.info(`Server running in ${config.nodeEnv} mode on port ${PORT}`);
+});
 
 // Handle unhandled promise rejections
 process.on("unhandledRejection", (err: Error) => {
   logger.error("Unhandled Rejection:", err);
-  if (config.nodeEnv !== "production") {
-    process.exit(1);
-  }
+  process.exit(1);
 });
 
 export default app;

@@ -13,7 +13,7 @@ export const requireAdmin = (
     });
     return;
   }
-  
+  console.log(req.user.role)
   if (req.user.role !== 'admin') {
     res.status(403).json({
       success: false,
