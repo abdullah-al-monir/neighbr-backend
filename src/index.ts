@@ -56,7 +56,8 @@ app.use((req, res, next) => {
       "Content-Type, Authorization, X-Requested-With"
     );
     res.header("Access-Control-Allow-Credentials", "true");
-    return res.sendStatus(200);
+    res.sendStatus(200);
+    return;
   }
   next();
 });
