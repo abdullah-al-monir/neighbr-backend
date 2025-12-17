@@ -6,6 +6,7 @@ export const authLimiter = rateLimit({
   message: "Too many attempts, please try again later",
   standardHeaders: true,
   legacyHeaders: false,
+  trustProxy: true,  
 });
 
 export const apiLimiter = rateLimit({
@@ -14,4 +15,5 @@ export const apiLimiter = rateLimit({
   message: "Too many requests, please try again later",
   standardHeaders: true,
   legacyHeaders: false,
+  trustProxy: true, 
 });
