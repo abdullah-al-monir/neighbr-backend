@@ -18,6 +18,7 @@ import bookingRoutes from "./routes/bookingRoutes";
 import paymentRoutes from "./routes/paymentRoutes";
 import reviewRoutes from "./routes/reviewRoutes";
 import adminRoutes from "./routes/adminRoutes";
+import cityRoutes from "./routes/cityRoutes";
 
 const app = express();
 
@@ -100,6 +101,7 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/admin", adminRoutes);
+app.use('/api/cities', cityRoutes);
 
 // 404 handler
 app.use((req, res) => {

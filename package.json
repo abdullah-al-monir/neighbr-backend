@@ -7,7 +7,9 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "lint": "eslint src/**/*.ts",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "seed:cities": "ts-node src/scripts/seed-cities.ts",
+    "seed:artisans": "ts-node src/scripts/seed-artisans.ts"
   },
   "dependencies": {
     "@googlemaps/google-maps-services-js": "^3.4.2",
