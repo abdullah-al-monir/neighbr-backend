@@ -44,7 +44,8 @@ export const createBooking = async (
     const startMinutes = parseInt(startTime[0]) * 60 + parseInt(startTime[1]);
     const endMinutes = parseInt(endTime[0]) * 60 + parseInt(endTime[1]);
     const durationHours = (endMinutes - startMinutes) / 60;
-    const amount = durationHours * artisan.hourlyRate;
+    let amount = durationHours * artisan.hourlyRate;
+    amount = Number(amount.toFixed(2));
 
     // Create booking
     const booking = await Booking.create({

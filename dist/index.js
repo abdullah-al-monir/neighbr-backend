@@ -16,12 +16,12 @@ const errorHandler_1 = require("./middleware/errorHandler");
 const rateLimiter_1 = require("./middleware/rateLimiter");
 const logger_1 = require("./utils/logger");
 const authRoutes_1 = __importDefault(require("./routes/authRoutes"));
+const cityRoutes_1 = __importDefault(require("./routes/cityRoutes"));
 const artisanRoutes_1 = __importDefault(require("./routes/artisanRoutes"));
 const bookingRoutes_1 = __importDefault(require("./routes/bookingRoutes"));
 const paymentRoutes_1 = __importDefault(require("./routes/paymentRoutes"));
 const reviewRoutes_1 = __importDefault(require("./routes/reviewRoutes"));
 const adminRoutes_1 = __importDefault(require("./routes/adminRoutes"));
-const cityRoutes_1 = __importDefault(require("./routes/cityRoutes"));
 const app = (0, express_1.default)();
 // ========================================
 // ✅ TRUST PROXY - Must be FIRST!
@@ -80,12 +80,12 @@ app.get("/health", (req, res) => {
 });
 // Routes
 app.use("/api/auth", authRoutes_1.default);
+app.use("/api/cities", cityRoutes_1.default);
 app.use("/api/artisans", artisanRoutes_1.default);
 app.use("/api/bookings", bookingRoutes_1.default);
 app.use("/api/payments", paymentRoutes_1.default);
 app.use("/api/reviews", reviewRoutes_1.default);
 app.use("/api/admin", adminRoutes_1.default);
-app.use("/api/cities", cityRoutes_1.default);
 // 404 handler
 app.use((req, res) => {
     res.status(404).json({
