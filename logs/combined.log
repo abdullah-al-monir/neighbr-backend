@@ -1202,3 +1202,15 @@
 {"level":"info","message":"MongoDB Connected: ac-y8cb1h1-shard-00-02.2nmbwuk.mongodb.net","timestamp":"2025-12-17T09:52:37.207Z"}
 {"level":"info","message":"Serving static images from: F:\\Projects\\neighbr\\neighbr-backend\\public\\uploads\\images at path: /api/images","timestamp":"2025-12-17T09:52:54.350Z"}
 {"level":"info","message":"Server running in development mode on port 5000","timestamp":"2025-12-17T09:52:54.354Z"}
+{"level":"info","message":"Serving static images from: F:\\Projects\\neighbr\\neighbr-backend\\public\\uploads\\images at path: /api/images","timestamp":"2025-12-17T09:52:55.419Z"}
+{"level":"info","message":"Server running in development mode on port 5000","timestamp":"2025-12-17T09:52:55.424Z"}
+{"level":"info","message":"MongoDB Connected: ac-y8cb1h1-shard-00-01.2nmbwuk.mongodb.net","timestamp":"2025-12-17T09:52:56.044Z"}
+{"level":"info","message":"Serving static images from: F:\\Projects\\neighbr\\neighbr-backend\\public\\uploads\\images at path: /api/images","timestamp":"2025-12-17T09:57:29.085Z"}
+{"level":"info","message":"Server running in development mode on port 5000","timestamp":"2025-12-17T09:57:29.089Z"}
+{"level":"info","message":"MongoDB Connected: ac-y8cb1h1-shard-00-00.2nmbwuk.mongodb.net","timestamp":"2025-12-17T09:57:29.891Z"}
+{"level":"info","message":"Serving static images from: F:\\Projects\\neighbr\\neighbr-backend\\public\\uploads\\images at path: /api/images","timestamp":"2025-12-17T09:57:30.866Z"}
+{"level":"info","message":"Server running in development mode on port 5000","timestamp":"2025-12-17T09:57:30.870Z"}
+{"level":"info","message":"MongoDB Connected: ac-y8cb1h1-shard-00-01.2nmbwuk.mongodb.net","timestamp":"2025-12-17T09:57:31.462Z"}
+{"level":"info","message":"Serving static images from: F:\\Projects\\neighbr\\neighbr-backend\\public\\uploads\\images at path: /api/images","timestamp":"2025-12-17T09:57:33.744Z"}
+{"level":"info","message":"Server running in development mode on port 5000","timestamp":"2025-12-17T09:57:33.748Z"}
+{"level":"info","message":"MongoDB Connected: ac-y8cb1h1-shard-00-00.2nmbwuk.mongodb.net","timestamp":"2025-12-17T09:57:34.372Z"}

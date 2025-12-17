@@ -27,6 +27,7 @@ const app = express();
 // ========================================
 // This tells Express to trust the X-Forwarded-* headers from Render's proxy
 // Place this BEFORE any middleware that uses req.ip (like rate limiting)
+app.set("trust proxy", 1);
 
 // Connect to database
 connectDatabase();
@@ -84,7 +85,7 @@ if (config.nodeEnv === "development") {
     })
   );
 }
-app.set("trust proxy", 1);
+
 // Rate limiting (now works correctly with trust proxy enabled)
 app.use("/api", apiLimiter);
 
