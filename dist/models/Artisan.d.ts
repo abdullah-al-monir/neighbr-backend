@@ -31,10 +31,11 @@ export interface IArtisan extends Document {
     verified: boolean;
     verificationDocuments?: string[];
     location: {
-        type: 'Point';
-        coordinates: [number, number];
+        division: string;
+        district: string;
+        area: string;
         address: string;
-        serviceRadius: number;
+        cityId: mongoose.Types.ObjectId;
     };
 }
 declare const _default: mongoose.Model<IArtisan, {}, {}, {}, mongoose.Document<unknown, {}, IArtisan, {}, mongoose.DefaultSchemaOptions> & IArtisan & Required<{

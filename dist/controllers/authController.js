@@ -7,13 +7,8 @@ exports.resetPassword = exports.forgotPassword = exports.verifyEmail = exports.u
 const User_1 = __importDefault(require("../models/User"));
 const jwt_1 = require("../utils/jwt");
 const crypto_1 = __importDefault(require("crypto"));
-const COOKIE_OPTIONS = {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    path: '/',
-};
+const cookieOptions_1 = require("../config/cookieOptions");
+const COOKIE_OPTIONS = (0, cookieOptions_1.getCookieOptions)();
 const register = async (req, res, next) => {
     try {
         const { email, password, name, role, phone, location } = req.body;
@@ -21,16 +16,16 @@ const register = async (req, res, next) => {
         if (existingUser) {
             res.status(400).json({
                 success: false,
-                message: 'User already exists with this email',
+                message: "User already exists with this email",
             });
             return;
         }
-        const verificationToken = crypto_1.default.randomBytes(32).toString('hex');
+        const verificationToken = crypto_1.default.randomBytes(32).toString("hex");
         const user = await User_1.default.create({
             email,
             password,
             name,
-            role: role || 'customer',
+            role: role || "customer",
             phone,
             location,
             verificationToken,
@@ -39,11 +34,11 @@ const register = async (req, res, next) => {
         const refreshToken = (0, jwt_1.generateRefreshToken)(user._id.toString());
         user.refreshToken = refreshToken;
         await user.save();
-        res.cookie('token', token, COOKIE_OPTIONS);
-        res.cookie('refreshToken', refreshToken, COOKIE_OPTIONS);
+        res.cookie("token", token, COOKIE_OPTIONS);
+        res.cookie("refreshToken", refreshToken, COOKIE_OPTIONS);
         res.status(201).json({
             success: true,
-            message: 'Registration successful. Please verify your email.',
+            message: "Registration successful. Please verify your email.",
             user: {
                 _id: user._id,
                 email: user.email,
@@ -62,11 +57,11 @@ exports.register = register;
 const login = async (req, res, next) => {
     try {
         const { email, password } = req.body;
-        const user = await User_1.default.findOne({ email }).select('+password');
+        const user = await User_1.default.findOne({ email }).select("+password");
         if (!user) {
             res.status(401).json({
                 success: false,
-                message: 'Invalid email or password',
+                message: "Invalid email or password",
             });
             return;
         }
@@ -74,7 +69,7 @@ const login = async (req, res, next) => {
         if (!isPasswordValid) {
             res.status(401).json({
                 success: false,
-                message: 'Invalid email or password',
+                message: "Invalid email or password",
             });
             return;
         }
@@ -84,12 +79,12 @@ const login = async (req, res, next) => {
         user.lastLogin = new Date();
         await user.save();
         // ✅ FIX 3: Set BOTH cookies
-        res.cookie('token', token, COOKIE_OPTIONS);
-        res.cookie('refreshToken', refreshToken, COOKIE_OPTIONS);
-        console.log('✅ Login successful - cookies set for user:', user._id);
+        res.cookie("token", token, COOKIE_OPTIONS);
+        res.cookie("refreshToken", refreshToken, COOKIE_OPTIONS);
+        console.log("✅ Login successful - cookies set for user:", user._id);
         res.status(200).json({
             success: true,
-            message: 'Login successful',
+            message: "Login successful",
             user: {
                 _id: user._id,
                 email: user.email,
@@ -114,11 +109,11 @@ const logout = async (req, res, next) => {
             await User_1.default.findByIdAndUpdate(userId, { $unset: { refreshToken: 1 } });
         }
         // ✅ FIX 4: Clear BOTH cookies
-        res.clearCookie('token', { path: '/' });
-        res.clearCookie('refreshToken', { path: '/' });
+        res.clearCookie("token", { path: "/" });
+        res.clearCookie("refreshToken", { path: "/" });
         res.status(200).json({
             success: true,
-            message: 'Logout successful',
+            message: "Logout successful",
         });
     }
     catch (error) {
@@ -132,15 +127,15 @@ const refreshToken = async (req, res, next) => {
         if (!refreshToken) {
             res.status(401).json({
                 success: false,
-                message: 'Refresh token not found',
+                message: "Refresh token not found",
             });
             return;
         }
-        const user = await User_1.default.findOne({ refreshToken }).select('+refreshToken');
+        const user = await User_1.default.findOne({ refreshToken }).select("+refreshToken");
         if (!user) {
             res.status(401).json({
                 success: false,
-                message: 'Invalid refresh token',
+                message: "Invalid refresh token",
             });
             return;
         }
@@ -149,8 +144,8 @@ const refreshToken = async (req, res, next) => {
         user.refreshToken = newRefreshToken;
         await user.save();
         // ✅ FIX 5: Set BOTH new cookies
-        res.cookie('token', newToken, COOKIE_OPTIONS);
-        res.cookie('refreshToken', newRefreshToken, COOKIE_OPTIONS);
+        res.cookie("token", newToken, COOKIE_OPTIONS);
+        res.cookie("refreshToken", newRefreshToken, COOKIE_OPTIONS);
         res.status(200).json({
             success: true,
             token: newToken,
@@ -168,7 +163,7 @@ const getMe = async (req, res, next) => {
         if (!user) {
             res.status(404).json({
                 success: false,
-                message: 'User not found',
+                message: "User not found",
             });
             return;
         }
@@ -190,7 +185,7 @@ const updateProfile = async (req, res, next) => {
         if (!user) {
             res.status(404).json({
                 success: false,
-                message: 'User not found',
+                message: "User not found",
             });
             return;
         }
@@ -205,7 +200,7 @@ const updateProfile = async (req, res, next) => {
         await user.save();
         res.status(200).json({
             success: true,
-            message: 'Profile updated successfully',
+            message: "Profile updated successfully",
             user,
         });
     }
@@ -217,11 +212,11 @@ exports.updateProfile = updateProfile;
 const verifyEmail = async (req, res, next) => {
     try {
         const { token } = req.params;
-        const user = await User_1.default.findOne({ verificationToken: token }).select('+verificationToken');
+        const user = await User_1.default.findOne({ verificationToken: token }).select("+verificationToken");
         if (!user) {
             res.status(400).json({
                 success: false,
-                message: 'Invalid or expired verification token',
+                message: "Invalid or expired verification token",
             });
             return;
         }
@@ -230,7 +225,7 @@ const verifyEmail = async (req, res, next) => {
         await user.save();
         res.status(200).json({
             success: true,
-            message: 'Email verified successfully',
+            message: "Email verified successfully",
         });
     }
     catch (error) {
@@ -245,17 +240,17 @@ const forgotPassword = async (req, res, next) => {
         if (!user) {
             res.status(200).json({
                 success: true,
-                message: 'If the email exists, a reset link has been sent',
+                message: "If the email exists, a reset link has been sent",
             });
             return;
         }
-        const resetToken = crypto_1.default.randomBytes(32).toString('hex');
+        const resetToken = crypto_1.default.randomBytes(32).toString("hex");
         user.resetPasswordToken = resetToken;
         user.resetPasswordExpires = new Date(Date.now() + 3600000);
         await user.save();
         res.status(200).json({
             success: true,
-            message: 'If the email exists, a reset link has been sent',
+            message: "If the email exists, a reset link has been sent",
         });
     }
     catch (error) {
@@ -270,11 +265,11 @@ const resetPassword = async (req, res, next) => {
         const user = await User_1.default.findOne({
             resetPasswordToken: token,
             resetPasswordExpires: { $gt: new Date() },
-        }).select('+resetPasswordToken +resetPasswordExpires');
+        }).select("+resetPasswordToken +resetPasswordExpires");
         if (!user) {
             res.status(400).json({
                 success: false,
-                message: 'Invalid or expired reset token',
+                message: "Invalid or expired reset token",
             });
             return;
         }
@@ -284,7 +279,7 @@ const resetPassword = async (req, res, next) => {
         await user.save();
         res.status(200).json({
             success: true,
-            message: 'Password reset successfully',
+            message: "Password reset successfully",
         });
     }
     catch (error) {

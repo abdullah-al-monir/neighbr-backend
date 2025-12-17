@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from "express";
 export declare const validate: (req: Request, res: Response, next: NextFunction) => void;
 export declare const registerValidation: (((req: Request, res: Response, next: NextFunction) => void) | import("express-validator").ValidationChain)[];
 export declare const loginValidation: (((req: Request, res: Response, next: NextFunction) => void) | import("express-validator").ValidationChain)[];

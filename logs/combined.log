@@ -1220,3 +1220,9 @@
 {"level":"info","message":"Serving static images from: F:\\Projects\\neighbr\\neighbr-backend\\public\\uploads\\images at path: /api/images","timestamp":"2025-12-17T10:04:19.785Z"}
 {"level":"info","message":"Server running in development mode on port 5000","timestamp":"2025-12-17T10:04:19.789Z"}
 {"level":"info","message":"MongoDB Connected: ac-y8cb1h1-shard-00-02.2nmbwuk.mongodb.net","timestamp":"2025-12-17T10:04:20.551Z"}
+{"level":"info","message":"Serving static images from: F:\\Projects\\neighbr\\neighbr-backend\\public\\uploads\\images at path: /api/images","timestamp":"2025-12-17T10:04:28.393Z"}
+{"level":"info","message":"Server running in development mode on port 5000","timestamp":"2025-12-17T10:04:28.397Z"}
+{"level":"info","message":"MongoDB Connected: ac-y8cb1h1-shard-00-00.2nmbwuk.mongodb.net","timestamp":"2025-12-17T10:04:29.045Z"}
+{"level":"info","message":"Serving static images from: F:\\Projects\\neighbr\\neighbr-backend\\public\\uploads\\images at path: /api/images","timestamp":"2025-12-17T10:16:20.916Z"}
+{"level":"info","message":"Server running in development mode on port 5000","timestamp":"2025-12-17T10:16:20.919Z"}
+{"level":"info","message":"MongoDB Connected: ac-y8cb1h1-shard-00-02.2nmbwuk.mongodb.net","timestamp":"2025-12-17T10:16:21.665Z"}

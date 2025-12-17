@@ -11,6 +11,9 @@ exports.authLimiter = (0, express_rate_limit_1.default)({
     message: "Too many attempts, please try again later",
     standardHeaders: true,
     legacyHeaders: false,
+    validate: {
+        xForwardedForHeader: false,
+    },
 });
 exports.apiLimiter = (0, express_rate_limit_1.default)({
     windowMs: 15 * 60 * 1000,
@@ -18,5 +21,8 @@ exports.apiLimiter = (0, express_rate_limit_1.default)({
     message: "Too many requests, please try again later",
     standardHeaders: true,
     legacyHeaders: false,
+    validate: {
+        xForwardedForHeader: false,
+    },
 });
 //# sourceMappingURL=rateLimiter.js.map

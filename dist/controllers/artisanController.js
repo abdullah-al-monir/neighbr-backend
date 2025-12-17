@@ -5,27 +5,23 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getAvailability = exports.updateAvailability = exports.deletePortfolio = exports.addPortfolio = exports.searchArtisans = exports.updateArtisanProfile = exports.getMyArtisanProfile = exports.getArtisanProfile = exports.createArtisanProfile = void 0;
 const Artisan_1 = __importDefault(require("../models/Artisan"));
+const City_1 = __importDefault(require("../models/City"));
 const User_1 = __importDefault(require("../models/User"));
-// Helper function to safely parse query parameters
+const mongoose_1 = __importDefault(require("mongoose"));
 const parseQuery = (query) => ({
     category: query.category,
     skills: query.skills ? query.skills.split(",") : undefined,
-    minRating: query.minRating
-        ? parseFloat(query.minRating)
-        : undefined,
+    minRating: query.minRating ? parseFloat(query.minRating) : undefined,
     maxRate: query.maxRate ? parseFloat(query.maxRate) : undefined,
-    lat: query.lat ? parseFloat(query.lat) : undefined,
-    lng: query.lng ? parseFloat(query.lng) : undefined,
-    maxDistance: query.maxDistance
-        ? parseFloat(query.maxDistance)
-        : undefined,
+    division: query.division,
+    district: query.district,
+    area: query.area,
+    cityId: query.cityId,
     sortBy: query.sortBy,
     page: parseInt(query.page || "1"),
     limit: parseInt(query.limit || "20"),
 });
-// ===============================================
-// CRUD & PROFILE MANAGEMENT
-// ===============================================
+// Create Artisan Profile
 const createArtisanProfile = async (req, res, next) => {
     try {
         const userId = req.user?.userId;
@@ -37,7 +33,16 @@ const createArtisanProfile = async (req, res, next) => {
                 message: "Artisan profile already exists",
             });
             return;
-        } // Update user role to artisan
+        }
+        // Verify city exists
+        const city = await City_1.default.findById(location.cityId);
+        if (!city) {
+            res.status(400).json({
+                success: false,
+                message: "Invalid city selected",
+            });
+            return;
+        }
         await User_1.default.findByIdAndUpdate(userId, { role: "artisan" });
         const artisan = await Artisan_1.default.create({
             userId,
@@ -46,10 +51,19 @@ const createArtisanProfile = async (req, res, next) => {
             skills,
             bio,
             hourlyRate,
-            location,
+            location: {
+                division: city.division,
+                district: city.district,
+                area: city.area,
+                address: location.address,
+                cityId: location.cityId,
+            },
             availability: availability || [],
         });
-        await artisan.populate("userId", "name email phone avatar");
+        await artisan.populate([
+            { path: "userId", select: "name email phone avatar" },
+            { path: "location.cityId" }
+        ]);
         res.status(201).json({
             success: true,
             message: "Artisan profile created successfully",
@@ -61,10 +75,13 @@ const createArtisanProfile = async (req, res, next) => {
     }
 };
 exports.createArtisanProfile = createArtisanProfile;
+// Get Artisan Profile
 const getArtisanProfile = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const artisan = await Artisan_1.default.findById(id).populate("userId", "name email phone avatar verified");
+        const artisan = await Artisan_1.default.findById(id)
+            .populate("userId", "name email phone avatar verified")
+            .populate("location.cityId");
         if (!artisan) {
             res.status(404).json({
                 success: false,
@@ -82,11 +99,13 @@ const getArtisanProfile = async (req, res, next) => {
     }
 };
 exports.getArtisanProfile = getArtisanProfile;
+// Get My Artisan Profile
 const getMyArtisanProfile = async (req, res, next) => {
     try {
         const userId = req.user?.userId;
-        console.log(userId);
-        const artisan = await Artisan_1.default.findOne({ userId }).populate("userId", "name email phone avatar verified");
+        const artisan = await Artisan_1.default.findOne({ userId })
+            .populate("userId", "name email phone avatar verified")
+            .populate("location.cityId");
         if (!artisan) {
             res.status(404).json({
                 success: false,
@@ -104,6 +123,7 @@ const getMyArtisanProfile = async (req, res, next) => {
     }
 };
 exports.getMyArtisanProfile = getMyArtisanProfile;
+// Update Artisan Profile
 const updateArtisanProfile = async (req, res, next) => {
     try {
         const userId = req.user?.userId;
@@ -115,7 +135,21 @@ const updateArtisanProfile = async (req, res, next) => {
                 message: "Artisan profile not found",
             });
             return;
-        } // Update allowed fields
+        }
+        // If updating location, verify city
+        if (updates.location?.cityId) {
+            const city = await City_1.default.findById(updates.location.cityId);
+            if (!city) {
+                res.status(400).json({
+                    success: false,
+                    message: "Invalid city selected",
+                });
+                return;
+            }
+            updates.location.division = city.division;
+            updates.location.district = city.district;
+            updates.location.area = city.area;
+        }
         const allowedUpdates = [
             "businessName",
             "category",
@@ -131,7 +165,10 @@ const updateArtisanProfile = async (req, res, next) => {
             }
         });
         await artisan.save();
-        await artisan.populate("userId", "name email phone avatar");
+        await artisan.populate([
+            { path: "userId", select: "name email phone avatar" },
+            { path: "location.cityId" }
+        ]);
         res.status(200).json({
             success: true,
             message: "Artisan profile updated successfully",
@@ -143,83 +180,64 @@ const updateArtisanProfile = async (req, res, next) => {
     }
 };
 exports.updateArtisanProfile = updateArtisanProfile;
-// ===============================================
-// SEARCH AND FILTERING (FIXED)
-// ===============================================
+// Search Artisans
 const searchArtisans = async (req, res, next) => {
     try {
-        const { category, skills, minRating, 
-        // @ts-ignore
-        maxDistance, maxRate, 
-        // @ts-ignore
-        lat, lng, sortBy, page, limit, } = parseQuery(req.query);
-        const pipeline = [];
-        // $geoNear MUST be the FIRST stage in the pipeline
-        // if (lat && lng && maxDistance) {
-        //   const distanceInMeters = maxDistance * 1000;
-        //   pipeline.push({
-        //     $geoNear: {
-        //       near: {
-        //         type: "Point",
-        //         coordinates: [lng, lat],
-        //       },
-        //       distanceField: "distance",
-        //       maxDistance: distanceInMeters,
-        //       spherical: true,
-        //     },
-        //   });
-        // }
-        // --- 2. Filtering Stage ($match) ---
+        const { category, skills, minRating, maxRate, division, district, area, cityId, sortBy, page, limit, } = parseQuery(req.query);
         const matchCriteria = { verified: true };
+        // Location filters
+        if (cityId) {
+            matchCriteria['location.cityId'] = new mongoose_1.default.Types.ObjectId(cityId);
+        }
+        else {
+            if (division)
+                matchCriteria['location.division'] = division;
+            if (district)
+                matchCriteria['location.district'] = district;
+            if (area)
+                matchCriteria['location.area'] = area;
+        }
+        // Category filter
         if (category && category !== "all") {
             matchCriteria.category = category;
         }
+        // Skills filter
         if (skills && skills.length > 0) {
             matchCriteria.skills = { $in: skills };
         }
+        // Rating filter
         if (minRating) {
             matchCriteria.rating = { $gte: minRating };
         }
+        // Rate filter
         if (maxRate) {
             matchCriteria.hourlyRate = { $lte: maxRate };
         }
-        // Only add $match if there are non-geospatial criteria (verified is always true)
-        if (Object.keys(matchCriteria).length > 1 || !matchCriteria.verified) {
-            pipeline.push({ $match: matchCriteria });
-        } // --- 3. Custom Sort Stage ---
-        // Check if $geoNear was used (pipeline[0] exists and has $geoNear)
-        // @ts-ignore
-        const isGeoNearUsed = pipeline.length > 0 && !!pipeline[0].$geoNear;
-        // Apply a custom sort ONLY IF:
-        // 1. $geoNear was NOT used (need a default sort).
-        // 2. $geoNear WAS used, but the user requested a non-distance sort (e.g., 'rating').
-        if (!isGeoNearUsed || (isGeoNearUsed && sortBy && sortBy !== "distance")) {
-            let sortCriteria = { rating: -1, reviewCount: -1 }; // Default sort
-            switch (sortBy) {
-                case "rating":
-                    sortCriteria = { rating: -1, reviewCount: -1 };
-                    break;
-                case "price":
-                    sortCriteria = { hourlyRate: 1 };
-                    break;
-                case "reviews":
-                    sortCriteria = { reviewCount: -1, rating: -1 };
-                    break;
-                case "distance":
-                    // If geoNear was used, it handles the distance sort. If not, ignore this.
-                    // If geoNear was not used, the default sort will apply.
-                    break;
-            }
-            // Apply sort only if it's not the default case handled by $geoNear
-            if (!isGeoNearUsed || (sortBy && sortBy !== "distance")) {
-                pipeline.push({ $sort: sortCriteria });
-            }
-        } // --- 4. Total Count and Pagination --- // Create a pipeline for total count
+        const pipeline = [];
+        // Match stage
+        pipeline.push({ $match: matchCriteria });
+        // Sort stage
+        let sortCriteria = { rating: -1, reviewCount: -1 };
+        switch (sortBy) {
+            case "rating":
+                sortCriteria = { rating: -1, reviewCount: -1 };
+                break;
+            case "price":
+                sortCriteria = { hourlyRate: 1 };
+                break;
+            case "reviews":
+                sortCriteria = { reviewCount: -1, rating: -1 };
+                break;
+        }
+        pipeline.push({ $sort: sortCriteria });
+        // Count total
         const totalQueryPipeline = [...pipeline];
         totalQueryPipeline.push({ $count: "total" });
+        // Pagination
         const skip = (page - 1) * limit;
         pipeline.push({ $skip: skip });
         pipeline.push({ $limit: limit });
+        // Lookup user details
         pipeline.push({
             $lookup: {
                 from: "users",
@@ -228,13 +246,24 @@ const searchArtisans = async (req, res, next) => {
                 as: "userArray",
             },
         });
-        // Unwind and project to structure the output
+        // Lookup city details
+        pipeline.push({
+            $lookup: {
+                from: "cities",
+                localField: "location.cityId",
+                foreignField: "_id",
+                as: "cityArray",
+            },
+        });
+        // Unwind and project
         pipeline.push({
             $unwind: { path: "$userArray", preserveNullAndEmptyArrays: true },
         });
         pipeline.push({
+            $unwind: { path: "$cityArray", preserveNullAndEmptyArrays: true },
+        });
+        pipeline.push({
             $project: {
-                // Include all required fields
                 businessName: 1,
                 category: 1,
                 skills: 1,
@@ -244,13 +273,19 @@ const searchArtisans = async (req, res, next) => {
                 hourlyRate: 1,
                 verified: 1,
                 location: 1,
-                distance: { $ifNull: ["$distance", null] },
                 userId: {
                     _id: "$userArray._id",
                     name: "$userArray.name",
                     email: "$userArray.email",
                     avatar: "$userArray.avatar",
                     verified: "$userArray.verified",
+                },
+                city: {
+                    _id: "$cityArray._id",
+                    name: "$cityArray.name",
+                    division: "$cityArray.division",
+                    district: "$cityArray.district",
+                    area: "$cityArray.area",
                 },
             },
         });
@@ -275,9 +310,7 @@ const searchArtisans = async (req, res, next) => {
     }
 };
 exports.searchArtisans = searchArtisans;
-// ===============================================
-// PORTFOLIO & AVAILABILITY
-// ===============================================
+// Portfolio & Availability functions remain the same
 const addPortfolio = async (req, res, next) => {
     try {
         const userId = req.user?.userId;
@@ -379,5 +412,4 @@ const updateAvailability = async (req, res, next) => {
     }
 };
 exports.updateAvailability = updateAvailability;
-// Removed getNearbyArtisans as its logic is merged into searchArtisans.
 //# sourceMappingURL=artisanController.js.map

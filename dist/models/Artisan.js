@@ -187,31 +187,29 @@ const ArtisanSchema = new mongoose_1.Schema({
         default: [],
     },
     location: {
-        type: {
+        division: {
             type: String,
-            enum: ['Point'],
-            default: 'Point',
+            required: [true, 'Division is required'],
+            enum: ['Dhaka', 'Chittagong', 'Rajshahi', 'Khulna', 'Barisal', 'Sylhet', 'Rangpur', 'Mymensingh'],
         },
-        coordinates: {
-            type: [Number],
-            required: [true, 'Coordinates are required'],
-            validate: {
-                validator: function (v) {
-                    return v.length === 2 && v[0] >= -180 && v[0] <= 180 && v[1] >= -90 && v[1] <= 90;
-                },
-                message: 'Invalid coordinates',
-            },
+        district: {
+            type: String,
+            required: [true, 'District is required'],
+            trim: true,
+        },
+        area: {
+            type: String,
+            required: [true, 'Area is required'],
+            trim: true,
         },
         address: {
             type: String,
             required: [true, 'Address is required'],
         },
-        serviceRadius: {
-            type: Number,
-            required: [true, 'Service radius is required'],
-            min: [1, 'Service radius must be at least 1km'],
-            max: [50, 'Service radius cannot exceed 50km'],
-            default: 10,
+        cityId: {
+            type: mongoose_1.Schema.Types.ObjectId,
+            ref: 'City',
+            required: [true, 'City is required'],
         },
     },
 }, {
@@ -219,8 +217,9 @@ const ArtisanSchema = new mongoose_1.Schema({
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
 });
-// Geospatial index for location-based queries
-ArtisanSchema.index({ 'location.coordinates': '2dsphere' });
+// Index for location-based queries
+ArtisanSchema.index({ 'location.division': 1, 'location.district': 1, 'location.area': 1 });
+ArtisanSchema.index({ 'location.cityId': 1 });
 // Index for category and rating
 ArtisanSchema.index({ category: 1, rating: -1 });
 // Index for verified artisans
@@ -231,6 +230,13 @@ ArtisanSchema.index({ category: 1, verified: 1, rating: -1 });
 ArtisanSchema.virtual('user', {
     ref: 'User',
     localField: 'userId',
+    foreignField: '_id',
+    justOne: true,
+});
+// Virtual for city details
+ArtisanSchema.virtual('city', {
+    ref: 'City',
+    localField: 'location.cityId',
     foreignField: '_id',
     justOne: true,
 });

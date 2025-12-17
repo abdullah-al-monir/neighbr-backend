@@ -13,12 +13,12 @@ import { apiLimiter } from "./middleware/rateLimiter";
 import { logger } from "./utils/logger";
 
 import authRoutes from "./routes/authRoutes";
+import cityRoutes from "./routes/cityRoutes";
 import artisanRoutes from "./routes/artisanRoutes";
 import bookingRoutes from "./routes/bookingRoutes";
 import paymentRoutes from "./routes/paymentRoutes";
 import reviewRoutes from "./routes/reviewRoutes";
 import adminRoutes from "./routes/adminRoutes";
-import cityRoutes from "./routes/cityRoutes";
 
 const app = express();
 
@@ -85,7 +85,7 @@ if (config.nodeEnv === "development") {
     })
   );
 }
-app.use("/api/cities", cityRoutes);
+
 // Rate limiting (now works correctly with trust proxy enabled)
 app.use("/api", apiLimiter);
 
@@ -96,6 +96,7 @@ app.get("/health", (req, res) => {
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/cities", cityRoutes);
 app.use("/api/artisans", artisanRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/payments", paymentRoutes);
