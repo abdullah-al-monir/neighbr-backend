@@ -85,7 +85,7 @@ if (config.nodeEnv === "development") {
     })
   );
 }
-
+app.use("/api/cities", cityRoutes);
 // Rate limiting (now works correctly with trust proxy enabled)
 app.use("/api", apiLimiter);
 
@@ -101,7 +101,6 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/admin", adminRoutes);
-app.use("/api/cities", cityRoutes);
 
 // 404 handler
 app.use((req, res) => {
