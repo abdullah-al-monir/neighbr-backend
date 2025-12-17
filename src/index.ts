@@ -101,7 +101,7 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/admin", adminRoutes);
-app.use('/api/cities', cityRoutes);
+app.use("/api/cities", cityRoutes);
 
 // 404 handler
 app.use((req, res) => {
