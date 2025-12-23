@@ -3,6 +3,7 @@ import Artisan from "../models/Artisan";
 import City from "../models/City";
 import User from "../models/User";
 import mongoose from "mongoose";
+import { uploadToCloudinary } from "../utils/cloudinaryUpload";
 
 interface CustomRequest extends Request {
   user?: {
@@ -14,7 +15,9 @@ interface CustomRequest extends Request {
 const parseQuery = (query: any) => ({
   category: query.category as string | undefined,
   skills: query.skills ? (query.skills as string).split(",") : undefined,
-  minRating: query.minRating ? parseFloat(query.minRating as string) : undefined,
+  minRating: query.minRating
+    ? parseFloat(query.minRating as string)
+    : undefined,
   maxRate: query.maxRate ? parseFloat(query.maxRate as string) : undefined,
   division: query.division as string | undefined,
   district: query.district as string | undefined,
@@ -83,7 +86,7 @@ const createArtisanProfile = async (
 
     await artisan.populate([
       { path: "userId", select: "name email phone avatar" },
-      { path: "location.cityId" }
+      { path: "location.cityId" },
     ]);
 
     res.status(201).json({
@@ -210,7 +213,7 @@ const updateArtisanProfile = async (
     await artisan.save();
     await artisan.populate([
       { path: "userId", select: "name email phone avatar" },
-      { path: "location.cityId" }
+      { path: "location.cityId" },
     ]);
 
     res.status(200).json({
@@ -248,11 +251,11 @@ const searchArtisans = async (
 
     // Location filters
     if (cityId) {
-      matchCriteria['location.cityId'] = new mongoose.Types.ObjectId(cityId);
+      matchCriteria["location.cityId"] = new mongoose.Types.ObjectId(cityId);
     } else {
-      if (division) matchCriteria['location.division'] = division;
-      if (district) matchCriteria['location.district'] = district;
-      if (area) matchCriteria['location.area'] = area;
+      if (division) matchCriteria["location.division"] = division;
+      if (district) matchCriteria["location.district"] = district;
+      if (area) matchCriteria["location.area"] = area;
     }
 
     // Category filter
@@ -390,12 +393,25 @@ const addPortfolio = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    console.log("req.files:", req.files);
+    console.log("req.body:", req.body);
+    console.log("req.file:", req.file);
     const userId = req.user?.userId;
-    const { title, description, images, category } = req.body;
+    const { title, description, category } = req.body;
+    const files = req.files as Express.Multer.File[];
+
+    // Files are already validated by middleware, so we can proceed directly
+
+    // Upload all images to Cloudinary in parallel
+    const uploadPromises = files.map((file) =>
+      uploadToCloudinary(file.buffer, "artisan-portfolios")
+    );
+
+    const images = await Promise.all(uploadPromises);
 
     const artisan = await Artisan.findOne({ userId });
     if (!artisan) {
-      res.status(404).json({
+      res.status(400).json({
         success: false,
         message: "Artisan profile not found",
       });
@@ -440,6 +456,20 @@ const deletePortfolio = async (
       return;
     }
 
+    // Find the portfolio item to get image URLs
+    const portfolioItem = artisan.portfolio.find(
+      (item: any) => item._id.toString() === portfolioId
+    );
+
+    if (portfolioItem) {
+      // Delete images from Cloudinary
+      const deletePromises = portfolioItem.images.map((imageUrl: string) =>
+        deleteFromCloudinary(imageUrl)
+      );
+      await Promise.allSettled(deletePromises); // Use allSettled to continue even if some deletions fail
+    }
+
+    // Remove from database
     artisan.portfolio = artisan.portfolio.filter(
       (item: any) => item._id.toString() !== portfolioId
     );

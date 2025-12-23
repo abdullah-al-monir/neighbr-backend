@@ -44,6 +44,7 @@ exports.loginValidation = [
 // Artisan validation
 exports.createArtisanValidation = [
     (0, express_validator_1.body)("businessName")
+        .trim()
         .isLength({ min: 2, max: 100 })
         .withMessage("Business name must be 2-100 characters"),
     (0, express_validator_1.body)("category")
@@ -75,20 +76,48 @@ exports.createArtisanValidation = [
         .withMessage("Invalid category"),
     (0, express_validator_1.body)("skills")
         .isArray({ min: 1, max: 20 })
-        .withMessage("Must have 1-20 skills"),
+        .withMessage("Must provide 1 to 20 skills")
+        .bail()
+        .custom((skills) => skills.every((s) => typeof s === "string" && s.trim().length > 0))
+        .withMessage("Each skill must be a non-empty string"),
     (0, express_validator_1.body)("bio")
+        .trim()
         .isLength({ min: 50, max: 1000 })
-        .withMessage("Bio must be 50-1000 characters"),
+        .withMessage("Bio must be between 50 and 1000 characters"),
     (0, express_validator_1.body)("hourlyRate")
         .isFloat({ min: 5, max: 1000 })
-        .withMessage("Hourly rate must be $5-$1000"),
-    (0, express_validator_1.body)("location.address").notEmpty().withMessage("Address is required"),
-    (0, express_validator_1.body)("location.coordinates")
-        .isArray({ min: 2, max: 2 })
-        .withMessage("Coordinates required"),
-    (0, express_validator_1.body)("location.serviceRadius")
-        .isFloat({ min: 1, max: 50 })
-        .withMessage("Service radius must be 1-50km"),
+        .withMessage("Hourly rate must be between $5 and $1000"),
+    // Location validations - matching your actual schema
+    (0, express_validator_1.body)("location.division")
+        .notEmpty()
+        .withMessage("Division is required")
+        .bail()
+        .isIn([
+        "Dhaka",
+        "Chittagong",
+        "Rajshahi",
+        "Khulna",
+        "Barisal",
+        "Sylhet",
+        "Rangpur",
+        "Mymensingh",
+    ])
+        .withMessage("Invalid division"),
+    (0, express_validator_1.body)("location.district")
+        .trim()
+        .notEmpty()
+        .withMessage("District is required"),
+    (0, express_validator_1.body)("location.area").trim().notEmpty().withMessage("Area is required"),
+    (0, express_validator_1.body)("location.address")
+        .trim()
+        .notEmpty()
+        .withMessage("Full address is required"),
+    (0, express_validator_1.body)("location.cityId")
+        .notEmpty()
+        .withMessage("City ID is required")
+        .bail()
+        .isMongoId()
+        .withMessage("Invalid city ID format"),
     exports.validate,
 ];
 // Booking validation
@@ -140,10 +169,25 @@ exports.addPortfolioValidation = [
     (0, express_validator_1.body)("description")
         .isLength({ min: 10, max: 1000 })
         .withMessage("Description must be 10-1000 characters"),
-    (0, express_validator_1.body)("images")
-        .isArray({ min: 1, max: 10 })
-        .withMessage("Must have 1-10 images"),
     (0, express_validator_1.body)("category").notEmpty().withMessage("Category is required"),
+    // Add custom validation for files
+    (req, res, next) => {
+        const files = req.files;
+        console.log(files);
+        if (!files || files.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "At least one image is required",
+            });
+        }
+        if (files.length > 10) {
+            return res.status(400).json({
+                success: false,
+                message: "Maximum 10 images allowed",
+            });
+        }
+        next();
+    },
     exports.validate,
 ];
 // Search validation

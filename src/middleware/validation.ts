@@ -45,8 +45,10 @@ export const loginValidation = [
 // Artisan validation
 export const createArtisanValidation = [
   body("businessName")
+    .trim()
     .isLength({ min: 2, max: 100 })
     .withMessage("Business name must be 2-100 characters"),
+
   body("category")
     .isIn([
       "baker",
@@ -74,22 +76,61 @@ export const createArtisanValidation = [
       "other",
     ])
     .withMessage("Invalid category"),
+
   body("skills")
     .isArray({ min: 1, max: 20 })
-    .withMessage("Must have 1-20 skills"),
+    .withMessage("Must provide 1 to 20 skills")
+    .bail()
+    .custom((skills: string[]) =>
+      skills.every((s) => typeof s === "string" && s.trim().length > 0)
+    )
+    .withMessage("Each skill must be a non-empty string"),
+
   body("bio")
+    .trim()
     .isLength({ min: 50, max: 1000 })
-    .withMessage("Bio must be 50-1000 characters"),
+    .withMessage("Bio must be between 50 and 1000 characters"),
+
   body("hourlyRate")
     .isFloat({ min: 5, max: 1000 })
-    .withMessage("Hourly rate must be $5-$1000"),
-  body("location.address").notEmpty().withMessage("Address is required"),
-  body("location.coordinates")
-    .isArray({ min: 2, max: 2 })
-    .withMessage("Coordinates required"),
-  body("location.serviceRadius")
-    .isFloat({ min: 1, max: 50 })
-    .withMessage("Service radius must be 1-50km"),
+    .withMessage("Hourly rate must be between $5 and $1000"),
+
+  // Location validations - matching your actual schema
+  body("location.division")
+    .notEmpty()
+    .withMessage("Division is required")
+    .bail()
+    .isIn([
+      "Dhaka",
+      "Chittagong",
+      "Rajshahi",
+      "Khulna",
+      "Barisal",
+      "Sylhet",
+      "Rangpur",
+      "Mymensingh",
+    ])
+    .withMessage("Invalid division"),
+
+  body("location.district")
+    .trim()
+    .notEmpty()
+    .withMessage("District is required"),
+
+  body("location.area").trim().notEmpty().withMessage("Area is required"),
+
+  body("location.address")
+    .trim()
+    .notEmpty()
+    .withMessage("Full address is required"),
+
+  body("location.cityId")
+    .notEmpty()
+    .withMessage("City ID is required")
+    .bail()
+    .isMongoId()
+    .withMessage("Invalid city ID format"),
+
   validate,
 ];
 
@@ -144,10 +185,27 @@ export const addPortfolioValidation = [
   body("description")
     .isLength({ min: 10, max: 1000 })
     .withMessage("Description must be 10-1000 characters"),
-  body("images")
-    .isArray({ min: 1, max: 10 })
-    .withMessage("Must have 1-10 images"),
   body("category").notEmpty().withMessage("Category is required"),
+  // Add custom validation for files
+  (req: Request, res: Response, next: NextFunction) => {
+    const files = req.files as Express.Multer.File[];
+    console.log(files)
+    if (!files || files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one image is required",
+      });
+    }
+
+    if (files.length > 10) {
+      return res.status(400).json({
+        success: false,
+        message: "Maximum 10 images allowed",
+      });
+    }
+
+    next();
+  },
   validate,
 ];
 

@@ -19,6 +19,7 @@ import {
   addPortfolioValidation,
   mongoIdValidation,
 } from "../middleware/validation";
+import { upload } from "../middleware/upload";
 
 const router = express.Router();
 
@@ -43,6 +44,7 @@ router.post(
   "/portfolio",
   authenticate,
   requireArtisan,
+  upload.array("images", 10),
   addPortfolioValidation,
   // @ts-ignore
   addPortfolio

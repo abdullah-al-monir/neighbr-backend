@@ -8,10 +8,13 @@ const Artisan_1 = __importDefault(require("../models/Artisan"));
 const City_1 = __importDefault(require("../models/City"));
 const User_1 = __importDefault(require("../models/User"));
 const mongoose_1 = __importDefault(require("mongoose"));
+const cloudinaryUpload_1 = require("../utils/cloudinaryUpload");
 const parseQuery = (query) => ({
     category: query.category,
     skills: query.skills ? query.skills.split(",") : undefined,
-    minRating: query.minRating ? parseFloat(query.minRating) : undefined,
+    minRating: query.minRating
+        ? parseFloat(query.minRating)
+        : undefined,
     maxRate: query.maxRate ? parseFloat(query.maxRate) : undefined,
     division: query.division,
     district: query.district,
@@ -62,7 +65,7 @@ const createArtisanProfile = async (req, res, next) => {
         });
         await artisan.populate([
             { path: "userId", select: "name email phone avatar" },
-            { path: "location.cityId" }
+            { path: "location.cityId" },
         ]);
         res.status(201).json({
             success: true,
@@ -167,7 +170,7 @@ const updateArtisanProfile = async (req, res, next) => {
         await artisan.save();
         await artisan.populate([
             { path: "userId", select: "name email phone avatar" },
-            { path: "location.cityId" }
+            { path: "location.cityId" },
         ]);
         res.status(200).json({
             success: true,
@@ -187,15 +190,15 @@ const searchArtisans = async (req, res, next) => {
         const matchCriteria = { verified: true };
         // Location filters
         if (cityId) {
-            matchCriteria['location.cityId'] = new mongoose_1.default.Types.ObjectId(cityId);
+            matchCriteria["location.cityId"] = new mongoose_1.default.Types.ObjectId(cityId);
         }
         else {
             if (division)
-                matchCriteria['location.division'] = division;
+                matchCriteria["location.division"] = division;
             if (district)
-                matchCriteria['location.district'] = district;
+                matchCriteria["location.district"] = district;
             if (area)
-                matchCriteria['location.area'] = area;
+                matchCriteria["location.area"] = area;
         }
         // Category filter
         if (category && category !== "all") {
@@ -313,11 +316,19 @@ exports.searchArtisans = searchArtisans;
 // Portfolio & Availability functions remain the same
 const addPortfolio = async (req, res, next) => {
     try {
+        console.log("req.files:", req.files);
+        console.log("req.body:", req.body);
+        console.log("req.file:", req.file);
         const userId = req.user?.userId;
-        const { title, description, images, category } = req.body;
+        const { title, description, category } = req.body;
+        const files = req.files;
+        // Files are already validated by middleware, so we can proceed directly
+        // Upload all images to Cloudinary in parallel
+        const uploadPromises = files.map((file) => (0, cloudinaryUpload_1.uploadToCloudinary)(file.buffer, "artisan-portfolios"));
+        const images = await Promise.all(uploadPromises);
         const artisan = await Artisan_1.default.findOne({ userId });
         if (!artisan) {
-            res.status(404).json({
+            res.status(400).json({
                 success: false,
                 message: "Artisan profile not found",
             });
@@ -354,6 +365,14 @@ const deletePortfolio = async (req, res, next) => {
             });
             return;
         }
+        // Find the portfolio item to get image URLs
+        const portfolioItem = artisan.portfolio.find((item) => item._id.toString() === portfolioId);
+        if (portfolioItem) {
+            // Delete images from Cloudinary
+            const deletePromises = portfolioItem.images.map((imageUrl) => deleteFromCloudinary(imageUrl));
+            await Promise.allSettled(deletePromises); // Use allSettled to continue even if some deletions fail
+        }
+        // Remove from database
         artisan.portfolio = artisan.portfolio.filter((item) => item._id.toString() !== portfolioId);
         await artisan.save();
         res.status(200).json({

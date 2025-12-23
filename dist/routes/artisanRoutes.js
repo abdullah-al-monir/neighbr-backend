@@ -8,6 +8,7 @@ const artisanController_1 = require("../controllers/artisanController");
 const auth_1 = require("../middleware/auth");
 const roleCheck_1 = require("../middleware/roleCheck");
 const validation_1 = require("../middleware/validation");
+const upload_1 = require("../middleware/upload");
 const router = express_1.default.Router();
 // Public routes
 router.get("/search", validation_1.searchArtisansValidation, artisanController_1.searchArtisans);
@@ -19,7 +20,7 @@ router.post("/profile", auth_1.authenticate, validation_1.createArtisanValidatio
 artisanController_1.createArtisanProfile);
 // @ts-ignore
 router.put("/profile", auth_1.authenticate, roleCheck_1.requireArtisan, artisanController_1.updateArtisanProfile);
-router.post("/portfolio", auth_1.authenticate, roleCheck_1.requireArtisan, validation_1.addPortfolioValidation, 
+router.post("/portfolio", auth_1.authenticate, roleCheck_1.requireArtisan, upload_1.upload.array("images", 10), validation_1.addPortfolioValidation, 
 // @ts-ignore
 artisanController_1.addPortfolio);
 // @ts-ignore
