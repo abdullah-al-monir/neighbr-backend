@@ -6,15 +6,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.verifyRefreshToken = exports.verifyToken = exports.generateRefreshToken = exports.generateToken = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const env_1 = require("../config/env");
-const generateToken = (userId, role) => {
-    return jsonwebtoken_1.default.sign({ userId, role }, env_1.config.jwtSecret, {
-        expiresIn: '5h',
+const generateToken = (userId, role, email, name, avatar) => {
+    return jsonwebtoken_1.default.sign({ userId, role, email, name, avatar }, env_1.config.jwtSecret, {
+        expiresIn: "5h",
     });
 };
 exports.generateToken = generateToken;
 const generateRefreshToken = (userId) => {
     return jsonwebtoken_1.default.sign({ userId }, env_1.config.jwtRefreshSecret, {
-        expiresIn: '7d',
+        expiresIn: "7d",
     });
 };
 exports.generateRefreshToken = generateRefreshToken;

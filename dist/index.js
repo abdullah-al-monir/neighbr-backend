@@ -73,7 +73,9 @@ else {
     }));
 }
 // Rate limiting (now works correctly with trust proxy enabled)
-app.use("/api", rateLimiter_1.apiLimiter);
+if (env_1.config.nodeEnv === "production") {
+    app.use("/api", rateLimiter_1.apiLimiter);
+}
 // Health check
 app.get("/health", (req, res) => {
     res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });

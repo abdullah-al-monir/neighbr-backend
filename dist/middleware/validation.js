@@ -28,12 +28,16 @@ exports.registerValidation = [
     (0, express_validator_1.body)("role")
         .isIn(["customer", "artisan"])
         .withMessage("Role must be customer or artisan"),
+    (0, express_validator_1.body)("location.division").notEmpty().withMessage("Division is required"),
+    (0, express_validator_1.body)("location.district").notEmpty().withMessage("District is required"),
+    (0, express_validator_1.body)("location.area").notEmpty().withMessage("Area is required"),
     (0, express_validator_1.body)("location.address").notEmpty().withMessage("Address is required"),
-    (0, express_validator_1.body)("location.city").notEmpty().withMessage("City is required"),
-    (0, express_validator_1.body)("location.postalCode").notEmpty().withMessage("Postal code is required"),
-    (0, express_validator_1.body)("location.coordinates")
-        .isArray({ min: 2, max: 2 })
-        .withMessage("Coordinates must be [longitude, latitude]"),
+    (0, express_validator_1.body)("location.cityId")
+        .notEmpty()
+        .withMessage("City ID is required")
+        .bail()
+        .isMongoId()
+        .withMessage("Invalid city ID format"),
     exports.validate,
 ];
 exports.loginValidation = [
@@ -171,6 +175,7 @@ exports.addPortfolioValidation = [
         .withMessage("Description must be 10-1000 characters"),
     (0, express_validator_1.body)("category").notEmpty().withMessage("Category is required"),
     // Add custom validation for files
+    // @ts-ignore
     (req, res, next) => {
         const files = req.files;
         console.log(files);

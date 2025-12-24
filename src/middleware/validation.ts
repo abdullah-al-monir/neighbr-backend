@@ -27,12 +27,16 @@ export const registerValidation = [
   body("role")
     .isIn(["customer", "artisan"])
     .withMessage("Role must be customer or artisan"),
+  body("location.division").notEmpty().withMessage("Division is required"),
+  body("location.district").notEmpty().withMessage("District is required"),
+  body("location.area").notEmpty().withMessage("Area is required"),
   body("location.address").notEmpty().withMessage("Address is required"),
-  body("location.city").notEmpty().withMessage("City is required"),
-  body("location.postalCode").notEmpty().withMessage("Postal code is required"),
-  body("location.coordinates")
-    .isArray({ min: 2, max: 2 })
-    .withMessage("Coordinates must be [longitude, latitude]"),
+  body("location.cityId")
+    .notEmpty()
+    .withMessage("City ID is required")
+    .bail()
+    .isMongoId()
+    .withMessage("Invalid city ID format"),
   validate,
 ];
 
@@ -187,9 +191,10 @@ export const addPortfolioValidation = [
     .withMessage("Description must be 10-1000 characters"),
   body("category").notEmpty().withMessage("Category is required"),
   // Add custom validation for files
+  // @ts-ignore
   (req: Request, res: Response, next: NextFunction) => {
     const files = req.files as Express.Multer.File[];
-    console.log(files)
+    console.log(files);
     if (!files || files.length === 0) {
       return res.status(400).json({
         success: false,

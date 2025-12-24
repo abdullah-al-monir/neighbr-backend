@@ -87,7 +87,9 @@ if (config.nodeEnv === "development") {
 }
 
 // Rate limiting (now works correctly with trust proxy enabled)
-app.use("/api", apiLimiter);
+if (config.nodeEnv === "production") {
+  app.use("/api", apiLimiter);
+}
 
 // Health check
 app.get("/health", (req, res) => {

@@ -3,7 +3,7 @@ import Artisan from "../models/Artisan";
 import City from "../models/City";
 import User from "../models/User";
 import mongoose from "mongoose";
-import { uploadToCloudinary } from "../utils/cloudinaryUpload";
+import { deleteFromCloudinary, uploadToCloudinary } from "../utils/cloudinaryUpload";
 
 interface CustomRequest extends Request {
   user?: {

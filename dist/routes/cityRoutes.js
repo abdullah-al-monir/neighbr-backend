@@ -17,6 +17,7 @@ router.get("/divisions/:division/districts/:district", cityController_1.getCitie
 router.get("/divisions/:division/districts/:district/areas", cityController_1.getAreasByDistrict);
 // Admin routes
 router.post("/", auth_1.authenticate, roleCheck_1.requireAdmin, cityController_1.createCity);
+router.get("/:id", auth_1.authenticate, roleCheck_1.requireAdmin, cityController_1.getCity);
 router.put("/:id", auth_1.authenticate, roleCheck_1.requireAdmin, cityController_1.updateCity);
 router.delete("/:id", auth_1.authenticate, roleCheck_1.requireAdmin, cityController_1.deleteCity);
 exports.default = router;

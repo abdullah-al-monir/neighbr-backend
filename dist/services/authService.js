@@ -9,7 +9,7 @@ const jwt_1 = require("../utils/jwt");
 const createUser = async (userData) => {
     const user = await User_1.default.create(userData);
     // @ts-ignore
-    const token = (0, jwt_1.generateToken)(user._id.toString(), user.role);
+    const token = (0, jwt_1.generateToken)(user._id.toString(), user.role, user.email, user.name, user.avatar);
     // @ts-ignore
     const refreshToken = (0, jwt_1.generateRefreshToken)(user._id.toString());
     // @ts-ignore
@@ -28,7 +28,7 @@ const authenticateUser = async (email, password) => {
     if (!isValid) {
         throw new Error('Invalid credentials');
     }
-    const token = (0, jwt_1.generateToken)(user._id.toString(), user.role);
+    const token = (0, jwt_1.generateToken)(user._id.toString(), user.role, user.email, user.name, user.avatar || '');
     const refreshToken = (0, jwt_1.generateRefreshToken)(user._id.toString());
     user.refreshToken = refreshToken;
     user.lastLogin = new Date();

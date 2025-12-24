@@ -3,15 +3,19 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.resetPassword = exports.forgotPassword = exports.verifyEmail = exports.updateProfile = exports.getMe = exports.refreshToken = exports.logout = exports.login = exports.register = void 0;
+exports.changePassword = exports.resendVerificationEmail = exports.resetPassword = exports.forgotPassword = exports.verifyEmail = exports.updateProfile = exports.getMe = exports.refreshToken = exports.logout = exports.login = exports.register = void 0;
 const User_1 = __importDefault(require("../models/User"));
 const jwt_1 = require("../utils/jwt");
 const crypto_1 = __importDefault(require("crypto"));
 const cookieOptions_1 = require("../config/cookieOptions");
+const cloudinaryUpload_1 = require("../utils/cloudinaryUpload");
+const City_1 = __importDefault(require("../models/City"));
+const emailService_1 = require("../services/emailService");
+const logger_1 = require("../utils/logger");
 const COOKIE_OPTIONS = (0, cookieOptions_1.getCookieOptions)();
 const register = async (req, res, next) => {
     try {
-        const { email, password, name, role, phone, location } = req.body;
+        const { email, password, name, role, phone, location: { address, cityId }, } = req.body;
         const existingUser = await User_1.default.findOne({ email });
         if (existingUser) {
             res.status(400).json({
@@ -20,33 +24,44 @@ const register = async (req, res, next) => {
             });
             return;
         }
+        const city = await City_1.default.findById(cityId);
+        if (!city) {
+            res.status(400).json({
+                success: false,
+                message: "Invalid city selected",
+            });
+            return;
+        }
         const verificationToken = crypto_1.default.randomBytes(32).toString("hex");
         const user = await User_1.default.create({
-            email,
+            email: email.toLowerCase().trim(),
             password,
-            name,
+            name: name.trim(),
             role: role || "customer",
-            phone,
-            location,
+            phone: phone?.trim(),
+            location: {
+                division: city.division,
+                district: city.district,
+                area: city.area,
+                address: address.trim(),
+                cityId: city._id,
+            },
             verificationToken,
+            verified: false,
         });
-        const token = (0, jwt_1.generateToken)(user._id.toString(), user.role);
-        const refreshToken = (0, jwt_1.generateRefreshToken)(user._id.toString());
-        user.refreshToken = refreshToken;
-        await user.save();
-        res.cookie("token", token, COOKIE_OPTIONS);
-        res.cookie("refreshToken", refreshToken, COOKIE_OPTIONS);
+        await (0, emailService_1.sendVerificationEmail)(user.email, verificationToken);
+        await user.populate("location.cityId");
         res.status(201).json({
             success: true,
-            message: "Registration successful. Please verify your email.",
+            message: "Registration successful. Please check your email to verify your account.",
             user: {
                 _id: user._id,
                 email: user.email,
                 name: user.name,
                 role: user.role,
                 verified: user.verified,
+                location: user.location,
             },
-            token,
         });
     }
     catch (error) {
@@ -73,15 +88,22 @@ const login = async (req, res, next) => {
             });
             return;
         }
-        const token = (0, jwt_1.generateToken)(user._id.toString(), user.role);
+        if (!user.verified) {
+            res.status(403).json({
+                success: false,
+                message: "Please verify your email before logging in",
+                needsVerification: true,
+            });
+            return;
+        }
+        const token = (0, jwt_1.generateToken)(user._id.toString(), user.role, user.email, user.name, user?.avatar || null);
         const refreshToken = (0, jwt_1.generateRefreshToken)(user._id.toString());
         user.refreshToken = refreshToken;
         user.lastLogin = new Date();
         await user.save();
-        // ✅ FIX 3: Set BOTH cookies
+        await user.populate("location.cityId");
         res.cookie("token", token, COOKIE_OPTIONS);
         res.cookie("refreshToken", refreshToken, COOKIE_OPTIONS);
-        console.log("✅ Login successful - cookies set for user:", user._id);
         res.status(200).json({
             success: true,
             message: "Login successful",
@@ -108,7 +130,6 @@ const logout = async (req, res, next) => {
         if (userId) {
             await User_1.default.findByIdAndUpdate(userId, { $unset: { refreshToken: 1 } });
         }
-        // ✅ FIX 4: Clear BOTH cookies
         res.clearCookie("token", { path: "/" });
         res.clearCookie("refreshToken", { path: "/" });
         res.status(200).json({
@@ -139,11 +160,10 @@ const refreshToken = async (req, res, next) => {
             });
             return;
         }
-        const newToken = (0, jwt_1.generateToken)(user._id.toString(), user.role);
+        const newToken = (0, jwt_1.generateToken)(user._id.toString(), user.role, user.email, user.name, user.avatar || "");
         const newRefreshToken = (0, jwt_1.generateRefreshToken)(user._id.toString());
         user.refreshToken = newRefreshToken;
         await user.save();
-        // ✅ FIX 5: Set BOTH new cookies
         res.cookie("token", newToken, COOKIE_OPTIONS);
         res.cookie("refreshToken", newRefreshToken, COOKIE_OPTIONS);
         res.status(200).json({
@@ -159,7 +179,7 @@ exports.refreshToken = refreshToken;
 const getMe = async (req, res, next) => {
     try {
         const userId = req.user?.userId;
-        const user = await User_1.default.findById(userId);
+        const user = await User_1.default.findById(userId).populate("location.cityId");
         if (!user) {
             res.status(404).json({
                 success: false,
@@ -180,7 +200,7 @@ exports.getMe = getMe;
 const updateProfile = async (req, res, next) => {
     try {
         const userId = req.user?.userId;
-        const { name, phone, location, avatar } = req.body;
+        const { name, phone, address, cityId } = req.body;
         const user = await User_1.default.findById(userId);
         if (!user) {
             res.status(404).json({
@@ -189,19 +209,52 @@ const updateProfile = async (req, res, next) => {
             });
             return;
         }
+        // Handle avatar upload if provided
+        if (req.file) {
+            // Delete old avatar from Cloudinary if exists
+            if (user.avatar && user.avatar.includes("cloudinary")) {
+                await (0, cloudinaryUpload_1.deleteFromCloudinary)(user.avatar);
+            }
+            // Upload new avatar
+            const avatarUrl = await (0, cloudinaryUpload_1.uploadToCloudinary)(req.file.buffer, "avatars");
+            user.avatar = avatarUrl;
+        }
+        // Update basic info
         if (name)
             user.name = name;
         if (phone)
             user.phone = phone;
-        if (location)
-            user.location = location;
-        if (avatar)
-            user.avatar = avatar;
+        // Update location if cityId is provided
+        if (cityId) {
+            const city = await City_1.default.findById(cityId);
+            if (!city) {
+                res.status(400).json({
+                    success: false,
+                    message: "Invalid city selected",
+                });
+                return;
+            }
+            user.location = {
+                division: city.division,
+                district: city.district,
+                area: city.area,
+                address: address || user.location.address,
+                cityId: city._id,
+            };
+        }
+        else if (address) {
+            // Only update address if cityId not provided
+            user.location.address = address;
+        }
         await user.save();
+        await user.populate("location.cityId");
+        const userResponse = user.toObject();
+        //@ts-ignore
+        delete userResponse.password;
         res.status(200).json({
             success: true,
             message: "Profile updated successfully",
-            user,
+            user: userResponse,
         });
     }
     catch (error) {
@@ -248,6 +301,8 @@ const forgotPassword = async (req, res, next) => {
         user.resetPasswordToken = resetToken;
         user.resetPasswordExpires = new Date(Date.now() + 3600000);
         await user.save();
+        // Send password reset email
+        await (0, emailService_1.sendPasswordResetEmail)(user.email, resetToken);
         res.status(200).json({
             success: true,
             message: "If the email exists, a reset link has been sent",
@@ -277,9 +332,13 @@ const resetPassword = async (req, res, next) => {
         user.resetPasswordToken = undefined;
         user.resetPasswordExpires = undefined;
         await user.save();
+        // Send confirmation email
+        (0, emailService_1.sendPasswordChangedEmail)(user.email, user.name).catch((err) => {
+            logger_1.logger.error("Failed to send password change email:", err);
+        });
         res.status(200).json({
             success: true,
-            message: "Password reset successfully",
+            message: "Password reset successfully. A confirmation email has been sent.",
         });
     }
     catch (error) {
@@ -287,4 +346,93 @@ const resetPassword = async (req, res, next) => {
     }
 };
 exports.resetPassword = resetPassword;
+const resendVerificationEmail = async (req, res, next) => {
+    try {
+        const { email } = req.body;
+        const user = await User_1.default.findOne({ email });
+        if (!user) {
+            res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+            return;
+        }
+        if (user.verified) {
+            res.status(400).json({
+                success: false,
+                message: "Email already verified",
+            });
+            return;
+        }
+        const verificationToken = crypto_1.default.randomBytes(32).toString("hex");
+        user.verificationToken = verificationToken;
+        await user.save();
+        await (0, emailService_1.sendVerificationEmail)(user.email, verificationToken);
+        res.status(200).json({
+            success: true,
+            message: "Verification email sent successfully",
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.resendVerificationEmail = resendVerificationEmail;
+const changePassword = async (req, res, next) => {
+    try {
+        const userId = req.user?.userId;
+        const { currentPassword, newPassword } = req.body;
+        if (!currentPassword || !newPassword) {
+            res.status(400).json({
+                success: false,
+                message: "Current password and new password are required",
+            });
+            return;
+        }
+        if (newPassword.length < 8) {
+            res.status(400).json({
+                success: false,
+                message: "New password must be at least 8 characters long",
+            });
+            return;
+        }
+        const user = await User_1.default.findById(userId).select("+password");
+        if (!user) {
+            res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+            return;
+        }
+        const isPasswordValid = await user.comparePassword(currentPassword);
+        if (!isPasswordValid) {
+            res.status(401).json({
+                success: false,
+                message: "Current password is incorrect",
+            });
+            return;
+        }
+        const isSamePassword = await user.comparePassword(newPassword);
+        if (isSamePassword) {
+            res.status(400).json({
+                success: false,
+                message: "New password must be different from current password",
+            });
+            return;
+        }
+        user.password = newPassword;
+        await user.save();
+        (0, emailService_1.sendPasswordChangedEmail)(user.email, user.name).catch((err) => {
+            logger_1.logger.error("Failed to send password change email:", err);
+        });
+        res.status(200).json({
+            success: true,
+            message: "Password changed successfully. A confirmation email has been sent.",
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.changePassword = changePassword;
 //# sourceMappingURL=authController.js.map

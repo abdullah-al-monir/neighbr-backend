@@ -77,36 +77,28 @@ const UserSchema = new mongoose_1.Schema({
         ],
     },
     location: {
-        type: {
+        division: {
             type: String,
-            enum: ["Point"],
-            default: "Point",
+            required: [true, 'Division is required'],
         },
-        coordinates: {
-            type: [Number],
-            required: [true, "Coordinates are required"],
-            validate: {
-                validator: function (v) {
-                    return (v.length === 2 &&
-                        v[0] >= -180 &&
-                        v[0] <= 180 &&
-                        v[1] >= -90 &&
-                        v[1] <= 90);
-                },
-                message: "Invalid coordinates",
-            },
+        district: {
+            type: String,
+            required: [true, 'District is required'],
+            trim: true,
+        },
+        area: {
+            type: String,
+            required: [true, 'Area is required'],
+            trim: true,
         },
         address: {
             type: String,
-            required: [true, "Address is required"],
+            required: [true, 'Address is required'],
         },
-        city: {
-            type: String,
-            required: [true, "City is required"],
-        },
-        postalCode: {
-            type: String,
-            required: [true, "Postal code is required"],
+        cityId: {
+            type: mongoose_1.Schema.Types.ObjectId,
+            ref: 'City',
+            required: [true, 'City is required'],
         },
     },
     verified: {
@@ -137,10 +129,18 @@ const UserSchema = new mongoose_1.Schema({
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
 });
-// Geospatial index for location-based queries
-UserSchema.index({ "location.coordinates": "2dsphere" });
+// Index for location-based queries
+UserSchema.index({ 'location.division': 1, 'location.district': 1, 'location.area': 1 });
+UserSchema.index({ 'location.cityId': 1 });
 // Index for email lookups
 UserSchema.index({ email: 1 });
+// Virtual for city details
+UserSchema.virtual('city', {
+    ref: 'City',
+    localField: 'location.cityId',
+    foreignField: '_id',
+    justOne: true,
+});
 // Hash password before saving
 UserSchema.pre("save", async function () {
     if (!this.isModified("password"))

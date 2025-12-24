@@ -4,7 +4,7 @@ import { generateToken, generateRefreshToken } from '../utils/jwt';
 export const createUser = async (userData: any) => {
   const user = await User.create(userData);
   // @ts-ignore
-  const token = generateToken(user._id.toString(), user.role);
+  const token = generateToken(user._id.toString(), user.role, user.email, user.name, user.avatar);
   // @ts-ignore
   const refreshToken = generateRefreshToken(user._id.toString());
   // @ts-ignore
@@ -26,7 +26,7 @@ export const authenticateUser = async (email: string, password: string) => {
     throw new Error('Invalid credentials');
   }
   
-  const token = generateToken(user._id.toString(), user.role);
+  const token = generateToken(user._id.toString(), user.role, user.email, user.name, user.avatar || '');
   const refreshToken = generateRefreshToken(user._id.toString());
   
   user.refreshToken = refreshToken;

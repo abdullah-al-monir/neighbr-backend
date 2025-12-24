@@ -7,11 +7,11 @@ export interface IUser extends Document {
     avatar?: string;
     phone?: string;
     location: {
-        type: "Point";
-        coordinates: [number, number];
+        division: string;
+        district: string;
+        area: string;
         address: string;
-        city: string;
-        postalCode: string;
+        cityId: mongoose.Types.ObjectId;
     };
     verified: boolean;
     verificationToken?: string;

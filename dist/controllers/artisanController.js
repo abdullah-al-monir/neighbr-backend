@@ -369,7 +369,7 @@ const deletePortfolio = async (req, res, next) => {
         const portfolioItem = artisan.portfolio.find((item) => item._id.toString() === portfolioId);
         if (portfolioItem) {
             // Delete images from Cloudinary
-            const deletePromises = portfolioItem.images.map((imageUrl) => deleteFromCloudinary(imageUrl));
+            const deletePromises = portfolioItem.images.map((imageUrl) => (0, cloudinaryUpload_1.deleteFromCloudinary)(imageUrl));
             await Promise.allSettled(deletePromises); // Use allSettled to continue even if some deletions fail
         }
         // Remove from database

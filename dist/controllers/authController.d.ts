@@ -8,4 +8,6 @@ export declare const updateProfile: (req: Request, res: Response, next: NextFunc
 export declare const verifyEmail: (req: Request, res: Response, next: NextFunction) => Promise<void>;
 export declare const forgotPassword: (req: Request, res: Response, next: NextFunction) => Promise<void>;
 export declare const resetPassword: (req: Request, res: Response, next: NextFunction) => Promise<void>;
+export declare const resendVerificationEmail: (req: Request, res: Response, next: NextFunction) => Promise<void>;
+export declare const changePassword: (req: Request, res: Response, next: NextFunction) => Promise<void>;
 //# sourceMappingURL=authController.d.ts.map

@@ -6,7 +6,8 @@ declare const getDivisions: (req: Request, res: Response, next: NextFunction) =>
 declare const getDistrictsByDivision: (req: Request, res: Response, next: NextFunction) => Promise<void>;
 declare const getAreasByDistrict: (req: Request, res: Response, next: NextFunction) => Promise<void>;
 declare const createCity: (req: Request, res: Response, next: NextFunction) => Promise<void>;
+declare const getCity: (req: Request, res: Response, next: NextFunction) => Promise<void>;
 declare const updateCity: (req: Request, res: Response, next: NextFunction) => Promise<void>;
 declare const deleteCity: (req: Request, res: Response, next: NextFunction) => Promise<void>;
-export { getAllCities, getCitiesByDivision, getCitiesByDistrict, getDivisions, getDistrictsByDivision, getAreasByDistrict, createCity, updateCity, deleteCity, };
+export { getAllCities, getCitiesByDivision, getCitiesByDistrict, getDivisions, getDistrictsByDivision, getAreasByDistrict, createCity, getCity, updateCity, deleteCity, };
 //# sourceMappingURL=cityController.d.ts.map

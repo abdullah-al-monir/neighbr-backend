@@ -3,6 +3,17 @@ import User from "../models/User";
 import { generateToken, generateRefreshToken } from "../utils/jwt";
 import crypto from "crypto";
 import { getCookieOptions } from "../config/cookieOptions";
+import {
+  deleteFromCloudinary,
+  uploadToCloudinary,
+} from "../utils/cloudinaryUpload";
+import City from "../models/City";
+import {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+  sendPasswordChangedEmail,
+} from "../services/emailService";
+import { logger } from "../utils/logger";
 
 const COOKIE_OPTIONS = getCookieOptions();
 
@@ -12,7 +23,14 @@ export const register = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { email, password, name, role, phone, location } = req.body;
+    const {
+      email,
+      password,
+      name,
+      role,
+      phone,
+      location: { address, cityId },
+    } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -23,38 +41,49 @@ export const register = async (
       return;
     }
 
-    const verificationToken = crypto.randomBytes(32).toString("hex");
+    const city = await City.findById(cityId);
+    if (!city) {
+      res.status(400).json({
+        success: false,
+        message: "Invalid city selected",
+      });
+      return;
+    }
 
+    const verificationToken = crypto.randomBytes(32).toString("hex");
     const user = await User.create({
-      email,
+      email: email.toLowerCase().trim(),
       password,
-      name,
+      name: name.trim(),
       role: role || "customer",
-      phone,
-      location,
+      phone: phone?.trim(),
+      location: {
+        division: city.division,
+        district: city.district,
+        area: city.area,
+        address: address.trim(),
+        cityId: city._id,
+      },
       verificationToken,
+      verified: false,
     });
 
-    const token = generateToken(user._id.toString(), user.role);
-    const refreshToken = generateRefreshToken(user._id.toString());
+    await sendVerificationEmail(user.email, verificationToken);
 
-    user.refreshToken = refreshToken;
-    await user.save();
-
-    res.cookie("token", token, COOKIE_OPTIONS);
-    res.cookie("refreshToken", refreshToken, COOKIE_OPTIONS);
+    await user.populate("location.cityId");
 
     res.status(201).json({
       success: true,
-      message: "Registration successful. Please verify your email.",
+      message:
+        "Registration successful. Please check your email to verify your account.",
       user: {
         _id: user._id,
         email: user.email,
         name: user.name,
         role: user.role,
         verified: user.verified,
+        location: user.location,
       },
-      token,
     });
   } catch (error: any) {
     next(error);
@@ -87,18 +116,32 @@ export const login = async (
       return;
     }
 
-    const token = generateToken(user._id.toString(), user.role);
+    if (!user.verified) {
+      res.status(403).json({
+        success: false,
+        message: "Please verify your email before logging in",
+        needsVerification: true,
+      });
+      return;
+    }
+
+    const token = generateToken(
+      user._id.toString(),
+      user.role,
+      user.email,
+      user.name,
+      user?.avatar || null
+    );
     const refreshToken = generateRefreshToken(user._id.toString());
 
     user.refreshToken = refreshToken;
     user.lastLogin = new Date();
     await user.save();
 
-    // ✅ FIX 3: Set BOTH cookies
+    await user.populate("location.cityId");
+
     res.cookie("token", token, COOKIE_OPTIONS);
     res.cookie("refreshToken", refreshToken, COOKIE_OPTIONS);
-
-    console.log("✅ Login successful - cookies set for user:", user._id);
 
     res.status(200).json({
       success: true,
@@ -131,7 +174,6 @@ export const logout = async (
       await User.findByIdAndUpdate(userId, { $unset: { refreshToken: 1 } });
     }
 
-    // ✅ FIX 4: Clear BOTH cookies
     res.clearCookie("token", { path: "/" });
     res.clearCookie("refreshToken", { path: "/" });
 
@@ -169,13 +211,18 @@ export const refreshToken = async (
       return;
     }
 
-    const newToken = generateToken(user._id.toString(), user.role);
+    const newToken = generateToken(
+      user._id.toString(),
+      user.role,
+      user.email,
+      user.name,
+      user.avatar || ""
+    );
     const newRefreshToken = generateRefreshToken(user._id.toString());
 
     user.refreshToken = newRefreshToken;
     await user.save();
 
-    // ✅ FIX 5: Set BOTH new cookies
     res.cookie("token", newToken, COOKIE_OPTIONS);
     res.cookie("refreshToken", newRefreshToken, COOKIE_OPTIONS);
 
@@ -196,7 +243,7 @@ export const getMe = async (
   try {
     const userId = req.user?.userId;
 
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).populate("location.cityId");
     if (!user) {
       res.status(404).json({
         success: false,
@@ -221,7 +268,7 @@ export const updateProfile = async (
 ): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    const { name, phone, location, avatar } = req.body;
+    const { name, phone, address, cityId } = req.body;
 
     const user = await User.findById(userId);
     if (!user) {
@@ -232,17 +279,56 @@ export const updateProfile = async (
       return;
     }
 
+    // Handle avatar upload if provided
+    if (req.file) {
+      // Delete old avatar from Cloudinary if exists
+      if (user.avatar && user.avatar.includes("cloudinary")) {
+        await deleteFromCloudinary(user.avatar);
+      }
+
+      // Upload new avatar
+      const avatarUrl = await uploadToCloudinary(req.file.buffer, "avatars");
+      user.avatar = avatarUrl;
+    }
+
+    // Update basic info
     if (name) user.name = name;
     if (phone) user.phone = phone;
-    if (location) user.location = location;
-    if (avatar) user.avatar = avatar;
+
+    // Update location if cityId is provided
+    if (cityId) {
+      const city = await City.findById(cityId);
+      if (!city) {
+        res.status(400).json({
+          success: false,
+          message: "Invalid city selected",
+        });
+        return;
+      }
+
+      user.location = {
+        division: city.division,
+        district: city.district,
+        area: city.area,
+        address: address || user.location.address,
+        cityId: city._id,
+      };
+    } else if (address) {
+      // Only update address if cityId not provided
+      user.location.address = address;
+    }
 
     await user.save();
+    await user.populate("location.cityId");
+
+    const userResponse = user.toObject();
+    //@ts-ignore
+    delete userResponse.password;
 
     res.status(200).json({
       success: true,
       message: "Profile updated successfully",
-      user,
+      user: userResponse,
     });
   } catch (error: any) {
     next(error);
@@ -304,6 +390,9 @@ export const forgotPassword = async (
     user.resetPasswordExpires = new Date(Date.now() + 3600000);
     await user.save();
 
+    // Send password reset email
+    await sendPasswordResetEmail(user.email, resetToken);
+
     res.status(200).json({
       success: true,
       message: "If the email exists, a reset link has been sent",
@@ -340,9 +429,124 @@ export const resetPassword = async (
     user.resetPasswordExpires = undefined;
     await user.save();
 
+    // Send confirmation email
+    sendPasswordChangedEmail(user.email, user.name).catch((err) => {
+      logger.error("Failed to send password change email:", err);
+    });
+
     res.status(200).json({
       success: true,
-      message: "Password reset successfully",
+      message:
+        "Password reset successfully. A confirmation email has been sent.",
+    });
+  } catch (error: any) {
+    next(error);
+  }
+};
+
+export const resendVerificationEmail = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+      return;
+    }
+
+    if (user.verified) {
+      res.status(400).json({
+        success: false,
+        message: "Email already verified",
+      });
+      return;
+    }
+
+    const verificationToken = crypto.randomBytes(32).toString("hex");
+    user.verificationToken = verificationToken;
+    await user.save();
+
+    await sendVerificationEmail(user.email, verificationToken);
+
+    res.status(200).json({
+      success: true,
+      message: "Verification email sent successfully",
+    });
+  } catch (error: any) {
+    next(error);
+  }
+};
+
+export const changePassword = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({
+        success: false,
+        message: "Current password and new password are required",
+      });
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      res.status(400).json({
+        success: false,
+        message: "New password must be at least 8 characters long",
+      });
+      return;
+    }
+
+    const user = await User.findById(userId).select("+password");
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+      return;
+    }
+
+    const isPasswordValid = await user.comparePassword(currentPassword);
+    if (!isPasswordValid) {
+      res.status(401).json({
+        success: false,
+        message: "Current password is incorrect",
+      });
+      return;
+    }
+
+    const isSamePassword = await user.comparePassword(newPassword);
+    if (isSamePassword) {
+      res.status(400).json({
+        success: false,
+        message: "New password must be different from current password",
+      });
+      return;
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    sendPasswordChangedEmail(user.email, user.name).catch((err) => {
+      logger.error("Failed to send password change email:", err);
+    });
+
+    res.status(200).json({
+      success: true,
+      message:
+        "Password changed successfully. A confirmation email has been sent.",
     });
   } catch (error: any) {
     next(error);

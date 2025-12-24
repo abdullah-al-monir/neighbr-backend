@@ -9,6 +9,7 @@ import {
   createCity,
   updateCity,
   deleteCity,
+  getCity,
 } from "../controllers/cityController";
 import { authenticate } from "../middleware/auth";
 import { requireAdmin } from "../middleware/roleCheck";
@@ -21,10 +22,14 @@ router.get("/divisions", getDivisions);
 router.get("/divisions/:division", getCitiesByDivision);
 router.get("/divisions/:division/districts", getDistrictsByDivision);
 router.get("/divisions/:division/districts/:district", getCitiesByDistrict);
-router.get("/divisions/:division/districts/:district/areas", getAreasByDistrict);
+router.get(
+  "/divisions/:division/districts/:district/areas",
+  getAreasByDistrict
+);
 
 // Admin routes
 router.post("/", authenticate, requireAdmin, createCity);
+router.get("/:id", authenticate, requireAdmin, getCity);
 router.put("/:id", authenticate, requireAdmin, updateCity);
 router.delete("/:id", authenticate, requireAdmin, deleteCity);
 
