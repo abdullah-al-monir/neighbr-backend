@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+import emailjs from '@emailjs/nodejs';
 import { config } from "../config/env";
 
 const emailWrapper = (content: string) => `
@@ -19,12 +19,32 @@ const emailWrapper = (content: string) => `
 
 const btnStyle = `display: inline-block; padding: 14px 28px; background-color: #FDBA74; color: #0F172A; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0;`;
 
-const transporter = nodemailer.createTransport({
-  host: config.smtpHost,
-  port: config.smtpPort,
-  secure: false,
-  auth: { user: config.smtpUser, pass: config.smtpPass },
-});
+const sendEmail = async (
+  to: string,
+  subject: string,
+  htmlContent: string
+): Promise<void> => {
+  try {
+    await emailjs.send(
+      config.emailjsServiceId,
+      config.emailjsTemplateId,
+      {
+        to_email: to,
+        subject: subject,
+        message: htmlContent,
+        from_name: "Neighbr",
+      },
+      {
+        publicKey: config.emailjsPublicKey,
+        privateKey: config.emailjsPrivateKey,
+      }
+    );
+    console.log('✅ Email sent successfully to:', to);
+  } catch (error: any) {
+    console.error('EmailJS error:', error);
+    throw new Error(`Failed to send email: ${error.text || error.message}`);
+  }
+};
 
 export const sendVerificationEmail = async (
   email: string,
@@ -40,12 +60,7 @@ export const sendVerificationEmail = async (
     <p style="font-size: 14px; color: #94A3B8;">This link will expire in 24 hours. If you didn't create an account, you can safely ignore this message.</p>
   `);
 
-  await transporter.sendMail({
-    from: config.emailFrom,
-    to: email,
-    subject: "Verify Your Email - Neighbr",
-    html,
-  });
+  await sendEmail(email, "Verify Your Email - Neighbr", html);
 };
 
 export const sendPasswordResetEmail = async (
@@ -62,12 +77,7 @@ export const sendPasswordResetEmail = async (
     <p style="font-size: 14px; color: #94A3B8;">This link expires in 1 hour. If you didn't request this, please change your password immediately as a precaution.</p>
   `);
 
-  await transporter.sendMail({
-    from: config.emailFrom,
-    to: email,
-    subject: "Reset Your Password - Neighbr",
-    html,
-  });
+  await sendEmail(email, "Reset Your Password - Neighbr", html);
 };
 
 export const sendPasswordChangedEmail = async (
@@ -83,12 +93,7 @@ export const sendPasswordChangedEmail = async (
     </div>
   `);
 
-  await transporter.sendMail({
-    from: config.emailFrom,
-    to: email,
-    subject: "Password Changed - Neighbr",
-    html,
-  });
+  await sendEmail(email, "Password Changed - Neighbr", html);
 };
 
 export const sendBookingConfirmation = async (
@@ -126,10 +131,5 @@ export const sendBookingConfirmation = async (
     <p>You can view your full booking details in your dashboard.</p>
   `);
 
-  await transporter.sendMail({
-    from: config.emailFrom,
-    to: email,
-    subject: "Booking Confirmed - Neighbr",
-    html,
-  });
+  await sendEmail(email, "Booking Confirmed - Neighbr", html);
 };
