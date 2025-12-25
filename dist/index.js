@@ -56,7 +56,7 @@ app.use((0, compression_1.default)());
 // ------------------------------------------------------------------------
 const imagesDir = path_1.default.join(__dirname, "..", "public", "uploads", "images");
 app.use("/api/images", express_1.default.static(imagesDir, {
-    setHeaders: (res, filePath) => {
+    setHeaders: (res, _filePath) => {
         res.setHeader("Access-Control-Allow-Origin", env_1.config.frontendUrl || "*");
         res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
     },
@@ -77,7 +77,7 @@ if (env_1.config.nodeEnv === "production") {
     app.use("/api", rateLimiter_1.apiLimiter);
 }
 // Health check
-app.get("/health", (req, res) => {
+app.get("/health", (_req, res) => {
     res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
 });
 // Routes
@@ -89,7 +89,7 @@ app.use("/api/payments", paymentRoutes_1.default);
 app.use("/api/reviews", reviewRoutes_1.default);
 app.use("/api/admin", adminRoutes_1.default);
 // 404 handler
-app.use((req, res) => {
+app.use((_req, res) => {
     res.status(404).json({
         success: false,
         message: "Route not found",

@@ -87,7 +87,7 @@ const getCitiesByDistrict = async (req, res, next) => {
 };
 exports.getCitiesByDistrict = getCitiesByDistrict;
 // Get all divisions
-const getDivisions = async (req, res, next) => {
+const getDivisions = async (_req, res, next) => {
     try {
         const divisions = await City_1.default.distinct("division", { isActive: true });
         res.status(200).json({

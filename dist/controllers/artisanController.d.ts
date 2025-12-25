@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from "express";
-import mongoose from "mongoose";
+interface UserPayload {
+    userId: string;
+    role: "customer" | "artisan" | "admin";
+}
 interface CustomRequest extends Request {
-    user?: {
-        userId: mongoose.Types.ObjectId;
-        role: "customer" | "artisan" | "admin";
-    };
+    user?: UserPayload;
 }
 declare const createArtisanProfile: (req: CustomRequest, res: Response, next: NextFunction) => Promise<void>;
 declare const getArtisanProfile: (req: Request, res: Response, next: NextFunction) => Promise<void>;

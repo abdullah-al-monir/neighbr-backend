@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendBookingConfirmation = exports.sendPasswordChangedEmail = exports.sendPasswordResetEmail = exports.sendVerificationEmail = void 0;
-const nodemailer_1 = __importDefault(require("nodemailer"));
+const nodejs_1 = __importDefault(require("@emailjs/nodejs"));
 const env_1 = require("../config/env");
 const emailWrapper = (content) => `
   <div style="background-color: #0F172A; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px 20px; color: #F8FAFC; line-height: 1.6;">
@@ -22,12 +22,24 @@ const emailWrapper = (content) => `
   </div>
 `;
 const btnStyle = `display: inline-block; padding: 14px 28px; background-color: #FDBA74; color: #0F172A; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0;`;
-const transporter = nodemailer_1.default.createTransport({
-    host: env_1.config.smtpHost,
-    port: env_1.config.smtpPort,
-    secure: false,
-    auth: { user: env_1.config.smtpUser, pass: env_1.config.smtpPass },
-});
+const sendEmail = async (to, subject, htmlContent) => {
+    try {
+        await nodejs_1.default.send(env_1.config.emailjsServiceId, env_1.config.emailjsTemplateId, {
+            to_email: to,
+            subject: subject,
+            message: htmlContent,
+            from_name: "Neighbr",
+        }, {
+            publicKey: env_1.config.emailjsPublicKey,
+            privateKey: env_1.config.emailjsPrivateKey,
+        });
+        console.log('✅ Email sent successfully to:', to);
+    }
+    catch (error) {
+        console.error('EmailJS error:', error);
+        throw new Error(`Failed to send email: ${error.text || error.message}`);
+    }
+};
 const sendVerificationEmail = async (email, token) => {
     const verificationUrl = `${env_1.config.frontendUrl}/verify-email/${token}`;
     const html = emailWrapper(`
@@ -38,12 +50,7 @@ const sendVerificationEmail = async (email, token) => {
     </div>
     <p style="font-size: 14px; color: #94A3B8;">This link will expire in 24 hours. If you didn't create an account, you can safely ignore this message.</p>
   `);
-    await transporter.sendMail({
-        from: env_1.config.emailFrom,
-        to: email,
-        subject: "Verify Your Email - Neighbr",
-        html,
-    });
+    await sendEmail(email, "Verify Your Email - Neighbr", html);
 };
 exports.sendVerificationEmail = sendVerificationEmail;
 const sendPasswordResetEmail = async (email, token) => {
@@ -56,12 +63,7 @@ const sendPasswordResetEmail = async (email, token) => {
     </div>
     <p style="font-size: 14px; color: #94A3B8;">This link expires in 1 hour. If you didn't request this, please change your password immediately as a precaution.</p>
   `);
-    await transporter.sendMail({
-        from: env_1.config.emailFrom,
-        to: email,
-        subject: "Reset Your Password - Neighbr",
-        html,
-    });
+    await sendEmail(email, "Reset Your Password - Neighbr", html);
 };
 exports.sendPasswordResetEmail = sendPasswordResetEmail;
 const sendPasswordChangedEmail = async (email, name) => {
@@ -73,12 +75,7 @@ const sendPasswordChangedEmail = async (email, name) => {
        <p style="margin: 0; font-size: 14px;"><strong>Not you?</strong> If you didn't make this change, please <a href="#" style="color: #67E8F9;">contact support</a> immediately.</p>
     </div>
   `);
-    await transporter.sendMail({
-        from: env_1.config.emailFrom,
-        to: email,
-        subject: "Password Changed - Neighbr",
-        html,
-    });
+    await sendEmail(email, "Password Changed - Neighbr", html);
 };
 exports.sendPasswordChangedEmail = sendPasswordChangedEmail;
 const sendBookingConfirmation = async (email, bookingDetails) => {
@@ -104,12 +101,7 @@ const sendBookingConfirmation = async (email, bookingDetails) => {
     </div>
     <p>You can view your full booking details in your dashboard.</p>
   `);
-    await transporter.sendMail({
-        from: env_1.config.emailFrom,
-        to: email,
-        subject: "Booking Confirmed - Neighbr",
-        html,
-    });
+    await sendEmail(email, "Booking Confirmed - Neighbr", html);
 };
 exports.sendBookingConfirmation = sendBookingConfirmation;
 //# sourceMappingURL=emailService.js.map

@@ -3,13 +3,18 @@ import Artisan from "../models/Artisan";
 import City from "../models/City";
 import User from "../models/User";
 import mongoose from "mongoose";
-import { deleteFromCloudinary, uploadToCloudinary } from "../utils/cloudinaryUpload";
+import {
+  deleteFromCloudinary,
+  uploadToCloudinary,
+} from "../utils/cloudinaryUpload";
+
+interface UserPayload {
+  userId: string;
+  role: "customer" | "artisan" | "admin";
+}
 
 interface CustomRequest extends Request {
-  user?: {
-    userId: mongoose.Types.ObjectId;
-    role: "customer" | "artisan" | "admin";
-  };
+  user?: UserPayload;
 }
 
 const parseQuery = (query: any) => ({

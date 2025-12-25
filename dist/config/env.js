@@ -16,10 +16,10 @@ exports.config = {
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
     frontendUrl: process.env.FRONTEND_URL || "http://localhost:3000",
     emailFrom: process.env.EMAIL_FROM,
-    smtpHost: process.env.SMTP_HOST,
-    smtpPort: parseInt(process.env.SMTP_PORT || "587"),
-    smtpUser: process.env.SMTP_USER,
-    smtpPass: process.env.SMTP_PASS,
+    emailjsPublicKey: process.env.EMAILJS_PUBLIC_KEY,
+    emailjsServiceId: process.env.EMAILJS_SERVICE_ID,
+    emailjsTemplateId: process.env.EMAILJS_TEMPLATE_ID,
+    emailjsPrivateKey: process.env.EMAILJS_PRIVATE_KEY,
     googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
 };
 // Validate required environment variables

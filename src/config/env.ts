@@ -13,9 +13,9 @@ export const config = {
   frontendUrl: process.env.FRONTEND_URL || "http://localhost:3000",
   emailFrom: process.env.EMAIL_FROM,
   emailjsPublicKey: process.env.EMAILJS_PUBLIC_KEY,
-  emailjsServiceId: process.env.EMAILJS_SERVICE_ID,
-  emailjsTemplateId: process.env.EMAILJS_TEMPLATE_ID,
-  emailjsPrivateKey: process.env.EMAILJS_PRIVATE_KEY,
+  emailjsServiceId: process.env.EMAILJS_SERVICE_ID!,
+  emailjsTemplateId: process.env.EMAILJS_TEMPLATE_ID!,
+  emailjsPrivateKey: process.env.EMAILJS_PRIVATE_KEY!,
   googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
 };
 

@@ -103,7 +103,7 @@ const getCitiesByDistrict = async (
 
 // Get all divisions
 const getDivisions = async (
-  req: Request,
+  _req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {

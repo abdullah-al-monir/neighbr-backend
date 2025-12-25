@@ -8,10 +8,10 @@ export declare const config: {
     stripeWebhookSecret: string;
     frontendUrl: string;
     emailFrom: string | undefined;
-    smtpHost: string | undefined;
-    smtpPort: number;
-    smtpUser: string | undefined;
-    smtpPass: string | undefined;
+    emailjsPublicKey: string | undefined;
+    emailjsServiceId: string;
+    emailjsTemplateId: string;
+    emailjsPrivateKey: string;
     googleMapsApiKey: string | undefined;
 };
 //# sourceMappingURL=env.d.ts.map
