@@ -22,6 +22,7 @@ const bookingRoutes_1 = __importDefault(require("./routes/bookingRoutes"));
 const paymentRoutes_1 = __importDefault(require("./routes/paymentRoutes"));
 const reviewRoutes_1 = __importDefault(require("./routes/reviewRoutes"));
 const adminRoutes_1 = __importDefault(require("./routes/adminRoutes"));
+const publicController_1 = require("./controllers/publicController");
 const app = (0, express_1.default)();
 // ========================================
 // ✅ TRUST PROXY - Must be FIRST!
@@ -81,6 +82,8 @@ app.get("/health", (_req, res) => {
     res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
 });
 // Routes
+app.use("/api/home", publicController_1.getHomePageData);
+app.use("/api/about", publicController_1.getAboutPageData);
 app.use("/api/auth", authRoutes_1.default);
 app.use("/api/cities", cityRoutes_1.default);
 app.use("/api/artisans", artisanRoutes_1.default);

@@ -9,6 +9,7 @@ export declare const updateArtisanVerification: (req: Request, res: Response, ne
 export declare const deleteArtisan: (req: Request, res: Response, next: NextFunction) => Promise<void>;
 export declare const getAllBookings: (req: Request, res: Response, next: NextFunction) => Promise<void>;
 export declare const getBookingById: (req: Request, res: Response, next: NextFunction) => Promise<void>;
+export declare const getTransactionById: (req: Request, res: Response, next: NextFunction) => Promise<void>;
 export declare const getAllTransactions: (req: Request, res: Response, next: NextFunction) => Promise<void>;
 export declare const deleteUser: (req: Request, res: Response, next: NextFunction) => Promise<void>;
 export declare const getCategoryStats: (req: Request, res: Response, next: NextFunction) => Promise<void>;

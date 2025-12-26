@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getCategoryStats = exports.deleteUser = exports.getAllTransactions = exports.getBookingById = exports.getAllBookings = exports.deleteArtisan = exports.updateArtisanVerification = exports.getAllArtisans = exports.updateUserVerification = exports.getAllUsers = exports.getUserById = exports.getRevenueAnalytics = exports.getDashboardStats = void 0;
+exports.getCategoryStats = exports.deleteUser = exports.getAllTransactions = exports.getTransactionById = exports.getBookingById = exports.getAllBookings = exports.deleteArtisan = exports.updateArtisanVerification = exports.getAllArtisans = exports.updateUserVerification = exports.getAllUsers = exports.getUserById = exports.getRevenueAnalytics = exports.getDashboardStats = void 0;
 const User_1 = __importDefault(require("../models/User"));
 const Artisan_1 = __importDefault(require("../models/Artisan"));
 const Booking_1 = __importDefault(require("../models/Booking"));
@@ -372,6 +372,27 @@ const getBookingById = async (req, res, next) => {
     }
 };
 exports.getBookingById = getBookingById;
+const getTransactionById = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const transaction = await Transaction_1.default.findById(id).populate("userId", "name email");
+        if (!transaction) {
+            res.status(404).json({
+                success: false,
+                message: "Transaction not found",
+            });
+            return;
+        }
+        res.status(200).json({
+            success: true,
+            data: transaction,
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.getTransactionById = getTransactionById;
 const getAllTransactions = async (req, res, next) => {
     try {
         const { page = 1, limit = 20, status, type } = req.query;

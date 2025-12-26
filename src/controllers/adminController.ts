@@ -371,7 +371,6 @@ export const deleteArtisan = async (
   }
 };
 
-
 export const getAllBookings = async (
   req: Request,
   res: Response,
@@ -453,6 +452,35 @@ export const getBookingById = async (
   }
 };
 
+export const getTransactionById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const transaction = await Transaction.findById(id).populate(
+      "userId",
+      "name email"
+    );
+
+    if (!transaction) {
+      res.status(404).json({
+        success: false,
+        message: "Transaction not found",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: transaction,
+    });
+  } catch (error: any) {
+    next(error);
+  }
+};
 export const getAllTransactions = async (
   req: Request,
   res: Response,

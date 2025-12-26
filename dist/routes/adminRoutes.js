@@ -30,5 +30,6 @@ router.get("/bookings", adminController_1.getAllBookings);
 router.get("/bookings/:id", validation_1.mongoIdValidation, adminController_1.getBookingById);
 // Transaction Management
 router.get("/transactions", adminController_1.getAllTransactions);
+router.get("/transactions/:id", validation_1.mongoIdValidation, adminController_1.getTransactionById);
 exports.default = router;
 //# sourceMappingURL=adminRoutes.js.map

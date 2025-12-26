@@ -19,6 +19,10 @@ import bookingRoutes from "./routes/bookingRoutes";
 import paymentRoutes from "./routes/paymentRoutes";
 import reviewRoutes from "./routes/reviewRoutes";
 import adminRoutes from "./routes/adminRoutes";
+import {
+  getAboutPageData,
+  getHomePageData,
+} from "./controllers/publicController";
 
 const app = express();
 
@@ -97,6 +101,8 @@ app.get("/health", (_req, res) => {
 });
 
 // Routes
+app.use("/api/home", getHomePageData);
+app.use("/api/about", getAboutPageData);
 app.use("/api/auth", authRoutes);
 app.use("/api/cities", cityRoutes);
 app.use("/api/artisans", artisanRoutes);

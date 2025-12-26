@@ -13,6 +13,7 @@ import {
   deleteArtisan,
   getAllBookings,
   getBookingById,
+  getTransactionById,
 } from "../controllers/adminController";
 import { authenticate } from "../middleware/auth";
 import { requireAdmin } from "../middleware/roleCheck";
@@ -50,5 +51,5 @@ router.get("/bookings/:id", mongoIdValidation, getBookingById);
 
 // Transaction Management
 router.get("/transactions", getAllTransactions);
-
+router.get("/transactions/:id", mongoIdValidation, getTransactionById);
 export default router;
