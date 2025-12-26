@@ -24,7 +24,6 @@ const getAllCities = async (
         { name: searchRegex },
         { district: searchRegex },
         { area: searchRegex },
-        { division: searchRegex },
       ];
     }
 

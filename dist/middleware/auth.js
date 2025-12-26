@@ -1,49 +1,42 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.authorize = exports.authenticate = void 0;
+exports.optionalAuth = exports.authorize = exports.authenticate = void 0;
 const jwt_1 = require("../utils/jwt");
+const User_1 = __importDefault(require("../models/User"));
 const authenticate = async (req, res, next) => {
     try {
-        // ⚠️ FIX: Check BOTH Authorization header AND cookies
-        let token = req.headers.authorization?.replace('Bearer ', '');
-        // If no token in header, check cookies
+        let token = req.headers.authorization?.replace("Bearer ", "");
         if (!token && req.cookies) {
             token = req.cookies.token;
         }
         if (!token) {
             res.status(401).json({
                 success: false,
-                message: 'Authentication required - no token provided',
+                message: "Authentication required - no token provided",
             });
             return;
         }
         const decoded = (0, jwt_1.verifyToken)(token);
-        console.log('✅ Token verified for user:', decoded);
         req.user = decoded;
         next();
     }
     catch (error) {
-        console.log('❌ Token verification failed:', error.message);
         res.status(401).json({
             success: false,
-            message: 'Invalid or expired token',
+            message: "Invalid or expired token",
         });
     }
 };
 exports.authenticate = authenticate;
 const authorize = (...roles) => {
     return (req, res, next) => {
-        if (!req.user) {
-            res.status(401).json({
-                success: false,
-                message: 'Authentication required',
-            });
-            return;
-        }
-        if (!roles.includes(req.user.role)) {
+        if (!req.user || !roles.includes(req.user.role)) {
             res.status(403).json({
                 success: false,
-                message: 'Not authorized to access this resource',
+                message: "Not authorized to access this resource",
             });
             return;
         }
@@ -51,4 +44,34 @@ const authorize = (...roles) => {
     };
 };
 exports.authorize = authorize;
+const optionalAuth = async (req, _res, next) => {
+    try {
+        // Check both Header and Cookies
+        let token = req.headers.authorization?.replace("Bearer ", "");
+        if (!token && req.cookies) {
+            token = req.cookies.token;
+        }
+        if (token) {
+            try {
+                const decoded = (0, jwt_1.verifyToken)(token);
+                const user = await User_1.default.findById(decoded.userId).select("role").lean();
+                if (user) {
+                    req.user = {
+                        userId: decoded.userId,
+                        role: user.role,
+                    };
+                }
+            }
+            catch (error) {
+                console.log("Optional auth: Invalid token, proceeding as guest");
+            }
+        }
+        next();
+    }
+    catch (error) {
+        console.error("Optional auth middleware error:", error);
+        next();
+    }
+};
+exports.optionalAuth = optionalAuth;
 //# sourceMappingURL=auth.js.map

@@ -11,7 +11,7 @@ const validation_1 = require("../middleware/validation");
 const upload_1 = require("../middleware/upload");
 const router = express_1.default.Router();
 // Public routes
-router.get("/search", validation_1.searchArtisansValidation, artisanController_1.searchArtisans);
+router.get("/search", validation_1.searchArtisansValidation, auth_1.optionalAuth, artisanController_1.searchArtisans);
 // Protected artisan routes
 // @ts-ignore
 router.get("/my-profile", auth_1.authenticate, artisanController_1.getMyArtisanProfile);

@@ -2,11 +2,11 @@ import { Request, Response, NextFunction } from "express";
 import Artisan from "../models/Artisan";
 import City from "../models/City";
 import User from "../models/User";
-import mongoose from "mongoose";
 import {
   deleteFromCloudinary,
   uploadToCloudinary,
 } from "../utils/cloudinaryUpload";
+import { AuthRequest } from "../middleware/auth";
 
 interface UserPayload {
   userId: string;
@@ -16,22 +16,6 @@ interface UserPayload {
 interface CustomRequest extends Request {
   user?: UserPayload;
 }
-
-const parseQuery = (query: any) => ({
-  category: query.category as string | undefined,
-  skills: query.skills ? (query.skills as string).split(",") : undefined,
-  minRating: query.minRating
-    ? parseFloat(query.minRating as string)
-    : undefined,
-  maxRate: query.maxRate ? parseFloat(query.maxRate as string) : undefined,
-  division: query.division as string | undefined,
-  district: query.district as string | undefined,
-  area: query.area as string | undefined,
-  cityId: query.cityId as string | undefined,
-  sortBy: query.sortBy as string | undefined,
-  page: parseInt((query.page as string) || "1"),
-  limit: parseInt((query.limit as string) || "20"),
-});
 
 // Create Artisan Profile
 const createArtisanProfile = async (
@@ -233,161 +217,147 @@ const updateArtisanProfile = async (
 
 // Search Artisans
 const searchArtisans = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): Promise<void> => {
   try {
     const {
+      cityId,
       category,
-      skills,
       minRating,
       maxRate,
-      division,
-      district,
-      area,
-      cityId,
-      sortBy,
-      page,
-      limit,
-    } = parseQuery(req.query);
+      searchTerm,
+      sortBy = "rating",
+      page = 1,
+      limit = 20,
+    } = req.query;
 
-    const matchCriteria: any = { verified: true };
+    //  User exist or not!
+    const userId = req.user?.userId;
 
-    // Location filters
+    let locationInfo: {
+      scope: "district" | "division";
+      division: string;
+      district: string;
+    } | null = null;
+
+    const query: any = { verified: true };
+    // Search term logic
+    if (searchTerm) {
+      const searchRegex = new RegExp(searchTerm as string, "i");
+      const matchingUsers = await User.find({
+        $or: [{ name: searchRegex }, { email: searchRegex }],
+      }).select("_id");
+      const userIds = matchingUsers.map((u) => u._id);
+      query.$or = [
+        { businessName: searchRegex },
+        { bio: searchRegex },
+        { userId: { $in: userIds } },
+        { "location.address": searchRegex },
+      ];
+    }
+    // Manual search (cityId provided)
     if (cityId) {
-      matchCriteria["location.cityId"] = new mongoose.Types.ObjectId(cityId);
+      query["location.cityId"] = cityId;
+      console.log("🔍 Manual search by cityId:", cityId);
+    }
+    // Auto search (user logged in, no cityId)
+    else if (userId) {
+      console.log("🔍 Auto search for user:", userId);
+
+      const user = await User.findById(userId).select("location");
+
+      if (user && user.location) {
+        const { division, district } = user.location;
+        console.log("🔍 User location:", { division, district });
+
+        const districtArtisans = await Artisan.find({
+          "location.district": district,
+          "location.division": division,
+          verified: true,
+        }).countDocuments();
+
+        console.log("🔍 Artisans in district:", districtArtisans);
+
+        if (districtArtisans < 5) {
+          query["location.division"] = division;
+          locationInfo = { scope: "division", division, district };
+          console.log("🔍 Expanding to division");
+        } else {
+          query["location.district"] = district;
+          query["location.division"] = division;
+          locationInfo = { scope: "district", division, district };
+          console.log("🔍 Searching in district");
+        }
+      } else {
+        console.log("⚠️ User found but no location data");
+      }
     } else {
-      if (division) matchCriteria["location.division"] = division;
-      if (district) matchCriteria["location.district"] = district;
-      if (area) matchCriteria["location.area"] = area;
+      console.log("🔍 No user - guest search");
     }
 
     // Category filter
     if (category && category !== "all") {
-      matchCriteria.category = category;
-    }
-
-    // Skills filter
-    if (skills && skills.length > 0) {
-      matchCriteria.skills = { $in: skills };
+      query.category = category;
     }
 
     // Rating filter
     if (minRating) {
-      matchCriteria.rating = { $gte: minRating };
+      query.rating = { $gte: parseFloat(minRating as string) };
     }
 
     // Rate filter
     if (maxRate) {
-      matchCriteria.hourlyRate = { $lte: maxRate };
+      query.hourlyRate = { $lte: parseFloat(maxRate as string) };
     }
 
-    const pipeline: mongoose.PipelineStage[] = [];
-
-    // Match stage
-    pipeline.push({ $match: matchCriteria });
-
-    // Sort stage
-    let sortCriteria: any = { rating: -1, reviewCount: -1 };
+    // Sorting
+    let sort: any = {};
     switch (sortBy) {
       case "rating":
-        sortCriteria = { rating: -1, reviewCount: -1 };
+        sort = { rating: -1, reviewCount: -1 };
         break;
       case "price":
-        sortCriteria = { hourlyRate: 1 };
+        sort = { hourlyRate: 1 };
         break;
       case "reviews":
-        sortCriteria = { reviewCount: -1, rating: -1 };
+        sort = { reviewCount: -1 };
         break;
+      default:
+        sort = { rating: -1 };
     }
-    pipeline.push({ $sort: sortCriteria });
 
-    // Count total
-    const totalQueryPipeline = [...pipeline];
-    totalQueryPipeline.push({ $count: "total" });
+    const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
 
-    // Pagination
-    const skip = (page - 1) * limit;
-    pipeline.push({ $skip: skip });
-    pipeline.push({ $limit: limit });
+    const artisans = await Artisan.find(query)
+      .sort(sort)
+      .skip(skip)
+      .limit(parseInt(limit as string))
+      .populate("userId", "name email avatar")
+      .populate("location.cityId")
+      .lean();
 
-    // Lookup user details
-    pipeline.push({
-      $lookup: {
-        from: "users",
-        localField: "userId",
-        foreignField: "_id",
-        as: "userArray",
-      },
-    });
-
-    // Lookup city details
-    pipeline.push({
-      $lookup: {
-        from: "cities",
-        localField: "location.cityId",
-        foreignField: "_id",
-        as: "cityArray",
-      },
-    });
-
-    // Unwind and project
-    pipeline.push({
-      $unwind: { path: "$userArray", preserveNullAndEmptyArrays: true },
-    });
-
-    pipeline.push({
-      $unwind: { path: "$cityArray", preserveNullAndEmptyArrays: true },
-    });
-
-    pipeline.push({
-      $project: {
-        businessName: 1,
-        category: 1,
-        skills: 1,
-        bio: 1,
-        rating: 1,
-        reviewCount: 1,
-        hourlyRate: 1,
-        verified: 1,
-        location: 1,
-        userId: {
-          _id: "$userArray._id",
-          name: "$userArray.name",
-          email: "$userArray.email",
-          avatar: "$userArray.avatar",
-          verified: "$userArray.verified",
-        },
-        city: {
-          _id: "$cityArray._id",
-          name: "$cityArray.name",
-          division: "$cityArray.division",
-          district: "$cityArray.district",
-          area: "$cityArray.area",
-        },
-      },
-    });
-
-    const [artisans, totalResult] = await Promise.all([
-      Artisan.aggregate(pipeline),
-      Artisan.aggregate(totalQueryPipeline),
-    ]);
-
-    const total = totalResult.length > 0 ? totalResult[0].total : 0;
+    const total = await Artisan.countDocuments(query);
 
     res.status(200).json({
       success: true,
       data: artisans,
       pagination: {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
         total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        pages: Math.ceil(total / parseInt(limit as string)),
       },
+      ...(locationInfo && { locationInfo }),
     });
   } catch (error: any) {
-    next(error);
+    console.error("❌ Search artisans error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to search artisans",
+      error: error.message,
+    });
   }
 };
 

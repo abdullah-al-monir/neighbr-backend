@@ -21,7 +21,6 @@ const getAllCities = async (req, res, next) => {
                 { name: searchRegex },
                 { district: searchRegex },
                 { area: searchRegex },
-                { division: searchRegex },
             ];
         }
         const skip = (parseInt(page) - 1) * parseInt(limit);

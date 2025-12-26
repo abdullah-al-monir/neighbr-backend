@@ -9,7 +9,7 @@
     "lint": "eslint src/**/*.ts",
     "type-check": "tsc --noEmit",
     "seed:cities": "ts-node src/scripts/seed-cities.ts",
-    "seed:artisans": "ts-node src/scripts/seed-artisans.ts"
+    "seed:artisans": "ts-node src/scripts/seed-artisans-master.ts"
   },
   "dependencies": {
     "@emailjs/nodejs": "^5.0.2",

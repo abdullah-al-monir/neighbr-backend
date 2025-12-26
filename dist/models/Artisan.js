@@ -190,7 +190,7 @@ const ArtisanSchema = new mongoose_1.Schema({
         division: {
             type: String,
             required: [true, 'Division is required'],
-            enum: ['Dhaka', 'Chittagong', 'Rajshahi', 'Khulna', 'Barisal', 'Sylhet', 'Rangpur', 'Mymensingh'],
+            enum: ['Dhaka', 'Chattogram', 'Rajshahi', 'Khulna', 'Barishal', 'Sylhet', 'Rangpur', 'Mymensingh'],
         },
         district: {
             type: String,

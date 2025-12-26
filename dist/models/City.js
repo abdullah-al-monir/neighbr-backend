@@ -46,10 +46,10 @@ const CitySchema = new mongoose_1.Schema({
         required: [true, "Division is required"],
         enum: [
             "Dhaka",
-            "Chittagong",
+            "Chattogram",
             "Rajshahi",
             "Khulna",
-            "Barisal",
+            "Barishal",
             "Sylhet",
             "Rangpur",
             "Mymensingh",

@@ -7,23 +7,7 @@ exports.getAvailability = exports.updateAvailability = exports.deletePortfolio =
 const Artisan_1 = __importDefault(require("../models/Artisan"));
 const City_1 = __importDefault(require("../models/City"));
 const User_1 = __importDefault(require("../models/User"));
-const mongoose_1 = __importDefault(require("mongoose"));
 const cloudinaryUpload_1 = require("../utils/cloudinaryUpload");
-const parseQuery = (query) => ({
-    category: query.category,
-    skills: query.skills ? query.skills.split(",") : undefined,
-    minRating: query.minRating
-        ? parseFloat(query.minRating)
-        : undefined,
-    maxRate: query.maxRate ? parseFloat(query.maxRate) : undefined,
-    division: query.division,
-    district: query.district,
-    area: query.area,
-    cityId: query.cityId,
-    sortBy: query.sortBy,
-    page: parseInt(query.page || "1"),
-    limit: parseInt(query.limit || "20"),
-});
 // Create Artisan Profile
 const createArtisanProfile = async (req, res, next) => {
     try {
@@ -184,132 +168,119 @@ const updateArtisanProfile = async (req, res, next) => {
 };
 exports.updateArtisanProfile = updateArtisanProfile;
 // Search Artisans
-const searchArtisans = async (req, res, next) => {
+const searchArtisans = async (req, res, _next) => {
     try {
-        const { category, skills, minRating, maxRate, division, district, area, cityId, sortBy, page, limit, } = parseQuery(req.query);
-        const matchCriteria = { verified: true };
-        // Location filters
+        const { cityId, category, minRating, maxRate, searchTerm, sortBy = "rating", page = 1, limit = 20, } = req.query;
+        //  User exist or not!
+        const userId = req.user?.userId;
+        let locationInfo = null;
+        const query = { verified: true };
+        // Search term logic
+        if (searchTerm) {
+            const searchRegex = new RegExp(searchTerm, "i");
+            const matchingUsers = await User_1.default.find({
+                $or: [{ name: searchRegex }, { email: searchRegex }],
+            }).select("_id");
+            const userIds = matchingUsers.map((u) => u._id);
+            query.$or = [
+                { businessName: searchRegex },
+                { bio: searchRegex },
+                { userId: { $in: userIds } },
+                { "location.address": searchRegex },
+            ];
+        }
+        // Manual search (cityId provided)
         if (cityId) {
-            matchCriteria["location.cityId"] = new mongoose_1.default.Types.ObjectId(cityId);
+            query["location.cityId"] = cityId;
+            console.log("🔍 Manual search by cityId:", cityId);
+        }
+        // Auto search (user logged in, no cityId)
+        else if (userId) {
+            console.log("🔍 Auto search for user:", userId);
+            const user = await User_1.default.findById(userId).select("location");
+            if (user && user.location) {
+                const { division, district } = user.location;
+                console.log("🔍 User location:", { division, district });
+                const districtArtisans = await Artisan_1.default.find({
+                    "location.district": district,
+                    "location.division": division,
+                    verified: true,
+                }).countDocuments();
+                console.log("🔍 Artisans in district:", districtArtisans);
+                if (districtArtisans < 5) {
+                    query["location.division"] = division;
+                    locationInfo = { scope: "division", division, district };
+                    console.log("🔍 Expanding to division");
+                }
+                else {
+                    query["location.district"] = district;
+                    query["location.division"] = division;
+                    locationInfo = { scope: "district", division, district };
+                    console.log("🔍 Searching in district");
+                }
+            }
+            else {
+                console.log("⚠️ User found but no location data");
+            }
         }
         else {
-            if (division)
-                matchCriteria["location.division"] = division;
-            if (district)
-                matchCriteria["location.district"] = district;
-            if (area)
-                matchCriteria["location.area"] = area;
+            console.log("🔍 No user - guest search");
         }
         // Category filter
         if (category && category !== "all") {
-            matchCriteria.category = category;
-        }
-        // Skills filter
-        if (skills && skills.length > 0) {
-            matchCriteria.skills = { $in: skills };
+            query.category = category;
         }
         // Rating filter
         if (minRating) {
-            matchCriteria.rating = { $gte: minRating };
+            query.rating = { $gte: parseFloat(minRating) };
         }
         // Rate filter
         if (maxRate) {
-            matchCriteria.hourlyRate = { $lte: maxRate };
+            query.hourlyRate = { $lte: parseFloat(maxRate) };
         }
-        const pipeline = [];
-        // Match stage
-        pipeline.push({ $match: matchCriteria });
-        // Sort stage
-        let sortCriteria = { rating: -1, reviewCount: -1 };
+        // Sorting
+        let sort = {};
         switch (sortBy) {
             case "rating":
-                sortCriteria = { rating: -1, reviewCount: -1 };
+                sort = { rating: -1, reviewCount: -1 };
                 break;
             case "price":
-                sortCriteria = { hourlyRate: 1 };
+                sort = { hourlyRate: 1 };
                 break;
             case "reviews":
-                sortCriteria = { reviewCount: -1, rating: -1 };
+                sort = { reviewCount: -1 };
                 break;
+            default:
+                sort = { rating: -1 };
         }
-        pipeline.push({ $sort: sortCriteria });
-        // Count total
-        const totalQueryPipeline = [...pipeline];
-        totalQueryPipeline.push({ $count: "total" });
-        // Pagination
-        const skip = (page - 1) * limit;
-        pipeline.push({ $skip: skip });
-        pipeline.push({ $limit: limit });
-        // Lookup user details
-        pipeline.push({
-            $lookup: {
-                from: "users",
-                localField: "userId",
-                foreignField: "_id",
-                as: "userArray",
-            },
-        });
-        // Lookup city details
-        pipeline.push({
-            $lookup: {
-                from: "cities",
-                localField: "location.cityId",
-                foreignField: "_id",
-                as: "cityArray",
-            },
-        });
-        // Unwind and project
-        pipeline.push({
-            $unwind: { path: "$userArray", preserveNullAndEmptyArrays: true },
-        });
-        pipeline.push({
-            $unwind: { path: "$cityArray", preserveNullAndEmptyArrays: true },
-        });
-        pipeline.push({
-            $project: {
-                businessName: 1,
-                category: 1,
-                skills: 1,
-                bio: 1,
-                rating: 1,
-                reviewCount: 1,
-                hourlyRate: 1,
-                verified: 1,
-                location: 1,
-                userId: {
-                    _id: "$userArray._id",
-                    name: "$userArray.name",
-                    email: "$userArray.email",
-                    avatar: "$userArray.avatar",
-                    verified: "$userArray.verified",
-                },
-                city: {
-                    _id: "$cityArray._id",
-                    name: "$cityArray.name",
-                    division: "$cityArray.division",
-                    district: "$cityArray.district",
-                    area: "$cityArray.area",
-                },
-            },
-        });
-        const [artisans, totalResult] = await Promise.all([
-            Artisan_1.default.aggregate(pipeline),
-            Artisan_1.default.aggregate(totalQueryPipeline),
-        ]);
-        const total = totalResult.length > 0 ? totalResult[0].total : 0;
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const artisans = await Artisan_1.default.find(query)
+            .sort(sort)
+            .skip(skip)
+            .limit(parseInt(limit))
+            .populate("userId", "name email avatar")
+            .populate("location.cityId")
+            .lean();
+        const total = await Artisan_1.default.countDocuments(query);
         res.status(200).json({
             success: true,
             data: artisans,
             pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
                 total,
-                page,
-                limit,
-                totalPages: Math.ceil(total / limit),
+                pages: Math.ceil(total / parseInt(limit)),
             },
+            ...(locationInfo && { locationInfo }),
         });
     }
     catch (error) {
-        next(error);
+        console.error("❌ Search artisans error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to search artisans",
+            error: error.message,
+        });
     }
 };
 exports.searchArtisans = searchArtisans;

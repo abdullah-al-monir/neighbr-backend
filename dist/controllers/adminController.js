@@ -213,7 +213,7 @@ const updateUserVerification = async (req, res, next) => {
 exports.updateUserVerification = updateUserVerification;
 const getAllArtisans = async (req, res, next) => {
     try {
-        const { page = 1, limit = 20, verified, category, search } = req.query;
+        const { page = 1, limit = 20, verified, category, division, search, } = req.query;
         const query = {};
         // Filter by verified status
         if (verified !== undefined && verified !== "all") {
@@ -223,14 +223,25 @@ const getAllArtisans = async (req, res, next) => {
         if (category) {
             query.category = category;
         }
+        // Filter by division
+        if (division) {
+            query["location.division"] = division;
+        }
         // Search by business name
         if (search) {
-            query.businessName = { $regex: search, $options: "i" };
+            const regex = { $regex: search, $options: "i" };
+            query.$or = [
+                { businessName: regex },
+                { "location.district": regex },
+                { "location.area": regex },
+                { "location.address": regex },
+            ];
         }
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const [artisans, total] = await Promise.all([
             Artisan_1.default.find(query)
                 .populate("userId", "name email phone verified")
+                .populate("city", "name")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(parseInt(limit)),

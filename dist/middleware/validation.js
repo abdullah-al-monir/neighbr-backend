@@ -98,10 +98,10 @@ exports.createArtisanValidation = [
         .bail()
         .isIn([
         "Dhaka",
-        "Chittagong",
+        "Chattogram",
         "Rajshahi",
         "Khulna",
-        "Barisal",
+        "Barishal",
         "Sylhet",
         "Rangpur",
         "Mymensingh",

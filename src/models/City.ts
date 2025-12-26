@@ -27,10 +27,10 @@ const CitySchema = new Schema<ICity>(
       required: [true, "Division is required"],
       enum: [
         "Dhaka",
-        "Chittagong",
+        "Chattogram",
         "Rajshahi",
         "Khulna",
-        "Barisal",
+        "Barishal",
         "Sylhet",
         "Rangpur",
         "Mymensingh",

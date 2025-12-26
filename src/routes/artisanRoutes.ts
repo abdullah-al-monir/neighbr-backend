@@ -10,7 +10,7 @@ import {
   getMyArtisanProfile,
   getAvailability,
 } from "../controllers/artisanController";
-import { authenticate } from "../middleware/auth";
+import { authenticate, optionalAuth } from "../middleware/auth";
 import { requireArtisan } from "../middleware/roleCheck";
 import {
   createArtisanValidation,
@@ -23,7 +23,8 @@ import { upload } from "../middleware/upload";
 const router = express.Router();
 
 // Public routes
-router.get("/search", searchArtisansValidation, searchArtisans);
+
+router.get("/search", searchArtisansValidation, optionalAuth, searchArtisans);
 
 // Protected artisan routes
 // @ts-ignore
