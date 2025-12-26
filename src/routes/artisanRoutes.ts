@@ -9,7 +9,6 @@ import {
   updateAvailability,
   getMyArtisanProfile,
   getAvailability,
-  // getNearbyArtisans,
 } from "../controllers/artisanController";
 import { authenticate } from "../middleware/auth";
 import { requireArtisan } from "../middleware/roleCheck";
@@ -52,7 +51,6 @@ router.post(
 // @ts-ignore
 router.get("/availability", authenticate, requireArtisan, getAvailability);
 
-// router.get('/nearby', getNearbyArtisans);
 router.get("/:id", mongoIdValidation, getArtisanProfile);
 router.delete(
   "/portfolio/:portfolioId",

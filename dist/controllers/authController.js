@@ -200,7 +200,7 @@ exports.getMe = getMe;
 const updateProfile = async (req, res, next) => {
     try {
         const userId = req.user?.userId;
-        const { name, phone, address, cityId } = req.body;
+        const { name, phone, location } = req.body;
         const user = await User_1.default.findById(userId);
         if (!user) {
             res.status(404).json({
@@ -224,9 +224,9 @@ const updateProfile = async (req, res, next) => {
             user.name = name;
         if (phone)
             user.phone = phone;
-        // Update location if cityId is provided
-        if (cityId) {
-            const city = await City_1.default.findById(cityId);
+        // Update location if provided
+        if (location && location.cityId) {
+            const city = await City_1.default.findById(location.cityId);
             if (!city) {
                 res.status(400).json({
                     success: false,
@@ -235,16 +235,21 @@ const updateProfile = async (req, res, next) => {
                 return;
             }
             user.location = {
-                division: city.division,
-                district: city.district,
-                area: city.area,
-                address: address || user.location.address,
+                division: location.division || city.division,
+                district: location.district || city.district,
+                area: location.area || city.area,
+                address: location.address || user.location?.address || "",
                 cityId: city._id,
             };
         }
-        else if (address) {
+        else if (location && location.address) {
             // Only update address if cityId not provided
-            user.location.address = address;
+            if (!user.location) {
+                user.location = { address: location.address };
+            }
+            else {
+                user.location.address = location.address;
+            }
         }
         await user.save();
         await user.populate("location.cityId");

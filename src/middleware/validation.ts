@@ -170,14 +170,14 @@ export const createBookingValidation = [
 // Review validation
 export const createReviewValidation = [
   body("bookingId").isMongoId().withMessage("Valid booking ID required"),
-  body("rating").isInt({ min: 1, max: 5 }).withMessage("Rating must be 1-5"),
+  body("rating")
+    .customSanitizer((value) => parseInt(value))
+    .isInt({ min: 1, max: 5 })
+    .withMessage("Rating must be 1-5"),
   body("comment")
+    .trim()
     .isLength({ min: 10, max: 1000 })
     .withMessage("Comment must be 10-1000 characters"),
-  body("images")
-    .optional()
-    .isArray({ max: 5 })
-    .withMessage("Maximum 5 images allowed"),
   validate,
 ];
 

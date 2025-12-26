@@ -19,7 +19,7 @@ const ReviewSchema = new Schema<IReview>(
       type: Schema.Types.ObjectId,
       ref: 'Booking',
       required: [true, 'Booking ID is required'],
-      unique: true, // One review per booking
+      unique: true,
       index: true,
     },
     customerId: {

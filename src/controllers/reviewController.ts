@@ -2,6 +2,11 @@ import { Request, Response, NextFunction } from "express";
 import Review from "../models/Review";
 import Booking from "../models/Booking";
 import Artisan from "../models/Artisan";
+import mongoose from "mongoose";
+import {
+  deleteFromCloudinary,
+  uploadToCloudinary,
+} from "../utils/cloudinaryUpload";
 
 export const createReview = async (
   req: Request,
@@ -10,9 +15,13 @@ export const createReview = async (
 ): Promise<void> => {
   try {
     const customerId = req.user?.userId;
-    const { bookingId, rating, comment, images } = req.body;
+    
+    // Convert rating from string to number (FormData sends everything as strings)
+    const bookingId = req.body.bookingId;
+    const rating = parseInt(req.body.rating);
+    const comment = req.body.comment;
+    const files = req.files as Express.Multer.File[];
 
-    // Check if booking exists and is completed
     const booking = await Booking.findById(bookingId);
     if (!booking) {
       res.status(404).json({
@@ -38,7 +47,6 @@ export const createReview = async (
       return;
     }
 
-    // Check if review already exists
     const existingReview = await Review.findOne({ bookingId });
     if (existingReview) {
       res.status(400).json({
@@ -48,6 +56,23 @@ export const createReview = async (
       return;
     }
 
+    let imageUrls: string[] = [];
+    if (files && files.length > 0) {
+      if (files.length > 5) {
+        res.status(400).json({
+          success: false,
+          message: "Maximum 5 images allowed",
+        });
+        return;
+      }
+
+      // Upload all images
+      const uploadPromises = files.map((file) =>
+        uploadToCloudinary(file.buffer, "reviews")
+      );
+      imageUrls = await Promise.all(uploadPromises);
+    }
+
     // Create review
     const review = await Review.create({
       bookingId,
@@ -55,7 +80,7 @@ export const createReview = async (
       artisanId: booking.artisanId,
       rating,
       comment,
-      images: images || [],
+      images: imageUrls,
     });
 
     await review.populate([
@@ -80,6 +105,7 @@ export const getArtisanReviews = async (
 ): Promise<void> => {
   try {
     const { id: artisanId } = req.params;
+    console.log(artisanId);
     const { page = 1, limit = 10, sortBy = "createdAt" } = req.query;
 
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
@@ -88,7 +114,7 @@ export const getArtisanReviews = async (
     if (sortBy === "rating") {
       sort = { rating: -1, createdAt: -1 };
     }
-
+    const artisanObjectId = new mongoose.Types.ObjectId(artisanId);
     const [reviews, total, stats] = await Promise.all([
       Review.find({ artisanId })
         .populate("customerId", "name avatar")
@@ -98,7 +124,7 @@ export const getArtisanReviews = async (
         .limit(parseInt(limit as string)),
       Review.countDocuments({ artisanId }),
       Review.aggregate([
-        { $match: { artisanId: artisanId } },
+        { $match: { artisanId: artisanObjectId } },
         {
           $group: {
             _id: "$rating",
@@ -171,40 +197,119 @@ export const updateReview = async (
   req: Request,
   res: Response,
   next: NextFunction
-): Promise<void> => {
+): Promise<void | Response> => {
   try {
     const { id } = req.params;
     const userId = req.user?.userId;
-    const { rating, comment, images } = req.body;
+    const rating = req.body.rating;
+    const comment = req.body.comment;
+
+    // Parse removeImages only ONCE
+    let imagesToRemove: string[] = [];
+    if (req.body.removeImages) {
+      try {
+        imagesToRemove = JSON.parse(req.body.removeImages);
+      } catch (parseError) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid removeImages format",
+        });
+      }
+    }
+
+    const files = req.files as Express.Multer.File[];
 
     const review = await Review.findById(id);
     if (!review) {
-      res.status(404).json({
+      return res.status(404).json({
         success: false,
         message: "Review not found",
       });
-      return;
     }
 
     if (review.customerId.toString() !== userId) {
-      res.status(403).json({
+      return res.status(403).json({
         success: false,
         message: "Not authorized to update this review",
       });
-      return;
     }
 
-    // Update review
-    if (rating) review.rating = rating;
-    if (comment) review.comment = comment;
-    if (images) review.images = images;
+    let currentImages = review.images || [];
+
+    // Remove images
+    if (imagesToRemove.length > 0) {
+      // Delete from Cloudinary
+      for (const imageUrl of imagesToRemove) {
+        if (imageUrl.includes("cloudinary")) {
+          await deleteFromCloudinary(imageUrl);
+        }
+      }
+
+      // Filter out removed images
+      currentImages = currentImages.filter(
+        (img) => !imagesToRemove.includes(img)
+      );
+    }
+
+    // Upload new images
+    if (files && files.length > 0) {
+      const totalImages = currentImages.length + files.length;
+
+      if (totalImages > 5) {
+        return res.status(400).json({
+          success: false,
+          message: `Maximum 5 images allowed. You can add ${
+            5 - currentImages.length
+          } more.`,
+        });
+      }
+
+      const uploadPromises = files.map((file) =>
+        uploadToCloudinary(file.buffer, "reviews")
+      );
+      const newImageUrls = await Promise.all(uploadPromises);
+      currentImages = [...currentImages, ...newImageUrls];
+    }
+
+    // Update fields
+    if (rating !== undefined) review.rating = Number(rating);
+    if (comment !== undefined) review.comment = comment;
+    review.images = currentImages;
 
     await review.save();
+
+    await review.populate([
+      { path: "customerId", select: "name avatar" },
+      { path: "bookingId", select: "serviceType scheduledDate" },
+    ]);
 
     res.status(200).json({
       success: true,
       message: "Review updated successfully",
       review,
+    });
+  } catch (error: any) {
+    next(error);
+  }
+};
+
+export const getMyReviews = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const customerId = req.user?.userId;
+    console.log("Customer ID:", req.user?.userId);
+
+    const reviews = await Review.find({ customerId })
+      .populate("artisanId", "businessName")
+      .populate("bookingId", "serviceType scheduledDate")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: reviews,
     });
   } catch (error: any) {
     next(error);

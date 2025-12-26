@@ -7,6 +7,7 @@ exports.cancelBooking = exports.updateBookingStatus = exports.getArtisanBookings
 const Booking_1 = __importDefault(require("../models/Booking"));
 const Artisan_1 = __importDefault(require("../models/Artisan"));
 const stripe_1 = require("../config/stripe");
+const Review_1 = __importDefault(require("../models/Review"));
 const createBooking = async (req, res, next) => {
     try {
         const customerId = req.user?.userId;
@@ -136,9 +137,17 @@ const getMyBookings = async (req, res, next) => {
                 .limit(parseInt(limit)),
             Booking_1.default.countDocuments(query),
         ]);
+        // Check if each booking has a review
+        const bookingsWithReviewStatus = await Promise.all(bookings.map(async (booking) => {
+            const hasReview = await Review_1.default.exists({ bookingId: booking._id });
+            return {
+                ...booking.toObject(),
+                hasReview: !!hasReview,
+            };
+        }));
         res.status(200).json({
             success: true,
-            data: bookings,
+            data: bookingsWithReviewStatus,
             pagination: {
                 total,
                 page: parseInt(page),

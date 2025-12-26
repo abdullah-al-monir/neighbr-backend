@@ -25,7 +25,6 @@ router.post("/portfolio", auth_1.authenticate, roleCheck_1.requireArtisan, uploa
 artisanController_1.addPortfolio);
 // @ts-ignore
 router.get("/availability", auth_1.authenticate, roleCheck_1.requireArtisan, artisanController_1.getAvailability);
-// router.get('/nearby', getNearbyArtisans);
 router.get("/:id", validation_1.mongoIdValidation, artisanController_1.getArtisanProfile);
 router.delete("/portfolio/:portfolioId", auth_1.authenticate, roleCheck_1.requireArtisan, 
 // @ts-ignore

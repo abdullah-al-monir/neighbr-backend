@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import Booking from "../models/Booking";
 import Artisan from "../models/Artisan";
 import { stripe } from "../config/stripe";
+import Review from "../models/Review";
 
 export const createBooking = async (
   req: Request,
@@ -166,9 +167,20 @@ export const getMyBookings = async (
       Booking.countDocuments(query),
     ]);
 
+    // Check if each booking has a review
+    const bookingsWithReviewStatus = await Promise.all(
+      bookings.map(async (booking) => {
+        const hasReview = await Review.exists({ bookingId: booking._id });
+        return {
+          ...booking.toObject(),
+          hasReview: !!hasReview,
+        };
+      })
+    );
+
     res.status(200).json({
       success: true,
-      data: bookings,
+      data: bookingsWithReviewStatus,
       pagination: {
         total,
         page: parseInt(page as string),

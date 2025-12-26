@@ -3,15 +3,20 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.addArtisanResponse = exports.deleteReview = exports.updateReview = exports.getReview = exports.getArtisanReviews = exports.createReview = void 0;
+exports.addArtisanResponse = exports.deleteReview = exports.getMyReviews = exports.updateReview = exports.getReview = exports.getArtisanReviews = exports.createReview = void 0;
 const Review_1 = __importDefault(require("../models/Review"));
 const Booking_1 = __importDefault(require("../models/Booking"));
 const Artisan_1 = __importDefault(require("../models/Artisan"));
+const mongoose_1 = __importDefault(require("mongoose"));
+const cloudinaryUpload_1 = require("../utils/cloudinaryUpload");
 const createReview = async (req, res, next) => {
     try {
         const customerId = req.user?.userId;
-        const { bookingId, rating, comment, images } = req.body;
-        // Check if booking exists and is completed
+        // Convert rating from string to number (FormData sends everything as strings)
+        const bookingId = req.body.bookingId;
+        const rating = parseInt(req.body.rating);
+        const comment = req.body.comment;
+        const files = req.files;
         const booking = await Booking_1.default.findById(bookingId);
         if (!booking) {
             res.status(404).json({
@@ -34,7 +39,6 @@ const createReview = async (req, res, next) => {
             });
             return;
         }
-        // Check if review already exists
         const existingReview = await Review_1.default.findOne({ bookingId });
         if (existingReview) {
             res.status(400).json({
@@ -43,6 +47,19 @@ const createReview = async (req, res, next) => {
             });
             return;
         }
+        let imageUrls = [];
+        if (files && files.length > 0) {
+            if (files.length > 5) {
+                res.status(400).json({
+                    success: false,
+                    message: "Maximum 5 images allowed",
+                });
+                return;
+            }
+            // Upload all images
+            const uploadPromises = files.map((file) => (0, cloudinaryUpload_1.uploadToCloudinary)(file.buffer, "reviews"));
+            imageUrls = await Promise.all(uploadPromises);
+        }
         // Create review
         const review = await Review_1.default.create({
             bookingId,
@@ -50,7 +67,7 @@ const createReview = async (req, res, next) => {
             artisanId: booking.artisanId,
             rating,
             comment,
-            images: images || [],
+            images: imageUrls,
         });
         await review.populate([
             { path: "customerId", select: "name avatar" },
@@ -70,12 +87,14 @@ exports.createReview = createReview;
 const getArtisanReviews = async (req, res, next) => {
     try {
         const { id: artisanId } = req.params;
+        console.log(artisanId);
         const { page = 1, limit = 10, sortBy = "createdAt" } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
         let sort = { createdAt: -1 };
         if (sortBy === "rating") {
             sort = { rating: -1, createdAt: -1 };
         }
+        const artisanObjectId = new mongoose_1.default.Types.ObjectId(artisanId);
         const [reviews, total, stats] = await Promise.all([
             Review_1.default.find({ artisanId })
                 .populate("customerId", "name avatar")
@@ -85,7 +104,7 @@ const getArtisanReviews = async (req, res, next) => {
                 .limit(parseInt(limit)),
             Review_1.default.countDocuments({ artisanId }),
             Review_1.default.aggregate([
-                { $match: { artisanId: artisanId } },
+                { $match: { artisanId: artisanObjectId } },
                 {
                     $group: {
                         _id: "$rating",
@@ -151,30 +170,71 @@ const updateReview = async (req, res, next) => {
     try {
         const { id } = req.params;
         const userId = req.user?.userId;
-        const { rating, comment, images } = req.body;
+        const rating = req.body.rating;
+        const comment = req.body.comment;
+        // Parse removeImages only ONCE
+        let imagesToRemove = [];
+        if (req.body.removeImages) {
+            try {
+                imagesToRemove = JSON.parse(req.body.removeImages);
+            }
+            catch (parseError) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid removeImages format",
+                });
+            }
+        }
+        const files = req.files;
         const review = await Review_1.default.findById(id);
         if (!review) {
-            res.status(404).json({
+            return res.status(404).json({
                 success: false,
                 message: "Review not found",
             });
-            return;
         }
         if (review.customerId.toString() !== userId) {
-            res.status(403).json({
+            return res.status(403).json({
                 success: false,
                 message: "Not authorized to update this review",
             });
-            return;
         }
-        // Update review
-        if (rating)
-            review.rating = rating;
-        if (comment)
+        let currentImages = review.images || [];
+        // Remove images
+        if (imagesToRemove.length > 0) {
+            // Delete from Cloudinary
+            for (const imageUrl of imagesToRemove) {
+                if (imageUrl.includes("cloudinary")) {
+                    await (0, cloudinaryUpload_1.deleteFromCloudinary)(imageUrl);
+                }
+            }
+            // Filter out removed images
+            currentImages = currentImages.filter((img) => !imagesToRemove.includes(img));
+        }
+        // Upload new images
+        if (files && files.length > 0) {
+            const totalImages = currentImages.length + files.length;
+            if (totalImages > 5) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Maximum 5 images allowed. You can add ${5 - currentImages.length} more.`,
+                });
+            }
+            const uploadPromises = files.map((file) => (0, cloudinaryUpload_1.uploadToCloudinary)(file.buffer, "reviews"));
+            const newImageUrls = await Promise.all(uploadPromises);
+            currentImages = [...currentImages, ...newImageUrls];
+        }
+        // Update fields
+        if (rating !== undefined)
+            review.rating = Number(rating);
+        if (comment !== undefined)
             review.comment = comment;
-        if (images)
-            review.images = images;
+        review.images = currentImages;
         await review.save();
+        await review.populate([
+            { path: "customerId", select: "name avatar" },
+            { path: "bookingId", select: "serviceType scheduledDate" },
+        ]);
         res.status(200).json({
             success: true,
             message: "Review updated successfully",
@@ -186,6 +246,24 @@ const updateReview = async (req, res, next) => {
     }
 };
 exports.updateReview = updateReview;
+const getMyReviews = async (req, res, next) => {
+    try {
+        const customerId = req.user?.userId;
+        console.log("Customer ID:", req.user?.userId);
+        const reviews = await Review_1.default.find({ customerId })
+            .populate("artisanId", "businessName")
+            .populate("bookingId", "serviceType scheduledDate")
+            .sort({ createdAt: -1 });
+        res.status(200).json({
+            success: true,
+            data: reviews,
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.getMyReviews = getMyReviews;
 const deleteReview = async (req, res, next) => {
     try {
         const { id } = req.params;
