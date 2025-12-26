@@ -15,10 +15,10 @@ export const authenticate = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    let token = req.headers.authorization?.replace("Bearer ", "");
+    let token = req.cookies?.token;
 
-    if (!token && req.cookies) {
-      token = req.cookies.token;
+    if (!token) {
+      token = req.headers.authorization?.replace("Bearer ", "");
     }
 
     if (!token) {
@@ -59,7 +59,6 @@ export const optionalAuth = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // Check both Header and Cookies
     let token = req.headers.authorization?.replace("Bearer ", "");
     if (!token && req.cookies) {
       token = req.cookies.token;

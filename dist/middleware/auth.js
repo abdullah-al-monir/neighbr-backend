@@ -8,9 +8,9 @@ const jwt_1 = require("../utils/jwt");
 const User_1 = __importDefault(require("../models/User"));
 const authenticate = async (req, res, next) => {
     try {
-        let token = req.headers.authorization?.replace("Bearer ", "");
-        if (!token && req.cookies) {
-            token = req.cookies.token;
+        let token = req.cookies?.token;
+        if (!token) {
+            token = req.headers.authorization?.replace("Bearer ", "");
         }
         if (!token) {
             res.status(401).json({
@@ -46,7 +46,6 @@ const authorize = (...roles) => {
 exports.authorize = authorize;
 const optionalAuth = async (req, _res, next) => {
     try {
-        // Check both Header and Cookies
         let token = req.headers.authorization?.replace("Bearer ", "");
         if (!token && req.cookies) {
             token = req.cookies.token;
