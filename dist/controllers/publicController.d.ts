@@ -8,7 +8,7 @@ interface IContactMessage extends mongoose.Document {
     email: string;
     subject: string;
     message: string;
-    status: 'new' | 'in-progress' | 'resolved';
+    status: "new" | "in-progress" | "resolved";
     createdAt: Date;
 }
 declare const ContactMessage: mongoose.Model<IContactMessage, {}, {}, {}, mongoose.Document<unknown, {}, IContactMessage, {}, mongoose.DefaultSchemaOptions> & IContactMessage & Required<{

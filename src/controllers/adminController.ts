@@ -6,12 +6,13 @@ import Transaction from "../models/Transaction";
 // import Review from "../models/Review";
 
 export const getDashboardStats = async (
-  // @ts-ignore
-  req: Request,
+  _req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
     const [
       totalUsers,
       totalArtisans,
@@ -19,6 +20,8 @@ export const getDashboardStats = async (
       activeBookings,
       pendingVerifications,
       revenueData,
+      newUsersLast30Days,
+      revenueLast30Days,
     ] = await Promise.all([
       User.countDocuments(),
       Artisan.countDocuments(),
@@ -27,58 +30,128 @@ export const getDashboardStats = async (
         status: { $in: ["pending", "confirmed", "in-progress"] },
       }),
       Artisan.countDocuments({ verified: false }),
-      Transaction.aggregate([
-        { $match: { status: "completed", type: "booking" } },
-        {
-          $group: {
-            _id: null,
-            totalRevenue: { $sum: "$amount" },
-            platformRevenue: { $sum: "$platformFee" },
-          },
-        },
-      ]),
-    ]);
 
-    // Calculate growth rates (compared to last 30 days)
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-
-    const [usersLastMonth, revenueLastMonth] = await Promise.all([
-      User.countDocuments({ createdAt: { $gte: thirtyDaysAgo } }),
+      // All-time revenue breakdown (booking + subscription)
       Transaction.aggregate([
         {
           $match: {
             status: "completed",
-            type: "booking",
+            type: { $in: ["booking", "subscription"] },
+          },
+        },
+        {
+          $group: {
+            _id: "$type",
+            totalAmount: { $sum: "$amount" },
+            totalPlatformFee: { $sum: "$platformFee" },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalRevenue: { $sum: "$totalAmount" },
+            totalPlatformRevenue: { $sum: "$totalPlatformFee" },
+            breakdown: {
+              $push: {
+                type: "$_id",
+                revenue: "$totalAmount",
+                platformFee: "$totalPlatformFee",
+                netToArtisans: {
+                  $subtract: ["$totalAmount", "$totalPlatformFee"],
+                },
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            totalRevenue: 1,
+            totalPlatformRevenue: 1,
+            bookingRevenue: {
+              $arrayElemAt: [
+                {
+                  $filter: {
+                    input: "$breakdown",
+                    cond: { $eq: ["$$this.type", "booking"] },
+                  },
+                },
+                0,
+              ],
+            },
+            subscriptionRevenue: {
+              $arrayElemAt: [
+                {
+                  $filter: {
+                    input: "$breakdown",
+                    cond: { $eq: ["$$this.type", "subscription"] },
+                  },
+                },
+                0,
+              ],
+            },
+          },
+        },
+      ]),
+
+      // New users in last 30 days
+      User.countDocuments({ createdAt: { $gte: thirtyDaysAgo } }),
+
+      // Total revenue (gross amount) in last 30 days
+      Transaction.aggregate([
+        {
+          $match: {
+            status: "completed",
+            type: { $in: ["booking", "subscription"] },
             createdAt: { $gte: thirtyDaysAgo },
           },
         },
         {
           $group: {
             _id: null,
-            revenue: { $sum: "$amount" },
+            total: { $sum: "$amount" },
           },
         },
       ]),
     ]);
 
-    const totalRevenue = revenueData[0]?.totalRevenue || 0;
-    const platformRevenue = revenueData[0]?.platformRevenue || 0;
+    // Extract all-time revenue
+    const revenueResult = revenueData[0] || {
+      totalRevenue: 0,
+      totalPlatformRevenue: 0,
+      bookingRevenue: { revenue: 0, platformFee: 0, netToArtisans: 0 },
+      subscriptionRevenue: { revenue: 0, platformFee: 0, netToArtisans: 0 },
+    };
+
+    const stats = {
+      totalUsers,
+      totalArtisans,
+      totalBookings,
+      activeBookings,
+      pendingVerifications,
+      userGrowth: newUsersLast30Days || 0,
+      revenueGrowth: revenueLast30Days[0]?.total || 0,
+      revenue: {
+        totalRevenue: revenueResult.totalRevenue || 0,
+        totalPlatformRevenue: revenueResult.totalPlatformRevenue || 0,
+        booking: {
+          revenue: revenueResult.bookingRevenue?.revenue || 0,
+          platformFee: revenueResult.bookingRevenue?.platformFee || 0,
+          netToArtisans: revenueResult.bookingRevenue?.netToArtisans || 0,
+        },
+        subscription: {
+          revenue: revenueResult.subscriptionRevenue?.revenue || 0,
+          platformFee: revenueResult.subscriptionRevenue?.platformFee || 0,
+          netToArtisans: revenueResult.subscriptionRevenue?.netToArtisans || 0,
+        },
+      },
+    };
 
     res.status(200).json({
       success: true,
-      stats: {
-        totalUsers,
-        totalArtisans,
-        totalBookings,
-        totalRevenue,
-        platformRevenue,
-        activeBookings,
-        pendingVerifications,
-        userGrowth: usersLastMonth,
-        revenueGrowth: revenueLastMonth[0]?.revenue || 0,
-      },
+      data: stats,
     });
-  } catch (error: any) {
+  } catch (error) {
     next(error);
   }
 };
@@ -90,38 +163,92 @@ export const getRevenueAnalytics = async (
 ): Promise<void> => {
   try {
     const { period = "30" } = req.query;
-    const days = parseInt(period as string);
+    const days = parseInt(period as string, 10);
     const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
     const revenueData = await Transaction.aggregate([
       {
         $match: {
           status: "completed",
-          type: "booking",
+          type: { $in: ["booking", "subscription"] },
           createdAt: { $gte: startDate },
         },
       },
       {
         $group: {
           _id: {
-            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
+            date: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            type: "$type",
           },
           revenue: { $sum: "$amount" },
           platformFee: { $sum: "$platformFee" },
-          bookings: { $sum: 1 },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $group: {
+          _id: "$_id.date",
+          totalRevenue: { $sum: "$revenue" },
+          totalPlatformFee: { $sum: "$platformFee" },
+          totalCount: { $sum: "$count" },
+          breakdown: {
+            $push: {
+              type: "$_id.type",
+              revenue: "$revenue",
+              platformFee: "$platformFee",
+              count: "$count",
+            },
+          },
         },
       },
       { $sort: { _id: 1 } },
+      {
+        $project: {
+          date: "$_id",
+          totalRevenue: 1,
+          totalPlatformFee: 1,
+          bookings: {
+            $arrayElemAt: [
+              {
+                $filter: {
+                  input: "$breakdown",
+                  cond: { $eq: ["$$this.type", "booking"] },
+                },
+              },
+              0,
+            ],
+          },
+          subscriptions: {
+            $arrayElemAt: [
+              {
+                $filter: {
+                  input: "$breakdown",
+                  cond: { $eq: ["$$this.type", "subscription"] },
+                },
+              },
+              0,
+            ],
+          },
+          _id: 0,
+        },
+      },
     ]);
+
+    const formattedData = revenueData.map((item) => ({
+      date: item.date,
+      totalRevenue: item.totalRevenue,
+      totalPlatformFee: item.totalPlatformFee,
+      bookingRevenue: item.bookings?.revenue || 0,
+      bookingPlatformFee: item.bookings?.platformFee || 0,
+      bookingCount: item.bookings?.count || 0,
+      subscriptionRevenue: item.subscriptions?.revenue || 0,
+      subscriptionPlatformFee: item.subscriptions?.platformFee || 0,
+      subscriptionCount: item.subscriptions?.count || 0,
+    }));
 
     res.status(200).json({
       success: true,
-      data: revenueData.map((item) => ({
-        date: item._id,
-        revenue: item.revenue,
-        platformFee: item.platformFee,
-        bookings: item.bookings,
-      })),
+      data: formattedData,
     });
   } catch (error: any) {
     next(error);
@@ -261,6 +388,7 @@ export const getAllArtisans = async (
       verified,
       category,
       division,
+      tier,
       search,
     } = req.query;
     const query: any = {};
@@ -272,6 +400,11 @@ export const getAllArtisans = async (
     // Filter by category
     if (category) {
       query.category = category;
+    }
+
+    // Filter by subscription tier
+    if (tier) {
+      query.subscriptionTier = tier;
     }
 
     // Filter by division
@@ -569,8 +702,7 @@ export const deleteUser = async (
 };
 
 export const getCategoryStats = async (
-  // @ts-ignore
-  req: Request,
+  _req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {

@@ -78,7 +78,6 @@ export const optionalAuth = async (
         console.log("Optional auth: Invalid token, proceeding as guest");
       }
     }
-
     next();
   } catch (error) {
     console.error("Optional auth middleware error:", error);

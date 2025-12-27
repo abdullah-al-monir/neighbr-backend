@@ -5,6 +5,8 @@ import Booking from "../models/Booking";
 import City from "../models/City";
 import User from "../models/User";
 import mongoose from "mongoose";
+import PlatformFeeConfig from "../models/PlatformFeeConfig";
+import SubscriptionSettings from "../models/SubscriptionSettings";
 
 export const getHomePageData = async (
   _req: Request,
@@ -80,7 +82,6 @@ export const getHomePageData = async (
       { $sort: { cityCount: -1 } },
     ]);
 
-    // Calculate average rating across platform
     const avgRatingResult = await Review.aggregate([
       {
         $group: {
@@ -128,7 +129,6 @@ export const getAboutPageData = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // Get real-time statistics
     const [
       totalArtisans,
       verifiedArtisans,
@@ -158,7 +158,6 @@ export const getAboutPageData = async (
         ? Math.round(avgRatingResult[0].avgRating * 10) / 10
         : 0;
 
-    // Get division-wise artisan distribution
     const divisionStats = await Artisan.aggregate([
       { $match: { verified: true } },
       {
@@ -169,6 +168,27 @@ export const getAboutPageData = async (
       },
       { $sort: { count: -1 } },
     ]);
+
+    const subscriptionPlans = await SubscriptionSettings.find({
+      isActive: true,
+    })
+      .select(
+        "tier name price duration features maxPortfolioItems prioritySupport featuredListing analyticsAccess description"
+      )
+      .sort({ price: 1 });
+
+    const platformFees = await PlatformFeeConfig.find({ isActive: true })
+      .select("tier feePercentage description")
+      .sort({ feePercentage: 1 });
+
+    const plansWithFees = subscriptionPlans.map((plan: any) => {
+      const feeConfig = platformFees.find((f: any) => f.tier === plan.tier);
+      return {
+        ...plan.toObject(),
+        commissionRate: feeConfig ? feeConfig.feePercentage : null,
+        commissionDescription: feeConfig?.description || "",
+      };
+    });
 
     res.status(200).json({
       success: true,
@@ -182,6 +202,8 @@ export const getAboutPageData = async (
           totalReviews,
         },
         divisionStats,
+        subscriptionPlans: plansWithFees,
+        platformFees,
       },
     });
   } catch (error: any) {
@@ -189,14 +211,13 @@ export const getAboutPageData = async (
   }
 };
 
-
 interface IContactMessage extends mongoose.Document {
   firstName: string;
   lastName: string;
   email: string;
   subject: string;
   message: string;
-  status: 'new' | 'in-progress' | 'resolved';
+  status: "new" | "in-progress" | "resolved";
   createdAt: Date;
 }
 
@@ -204,44 +225,44 @@ const ContactMessageSchema = new mongoose.Schema<IContactMessage>(
   {
     firstName: {
       type: String,
-      required: [true, 'First name is required'],
+      required: [true, "First name is required"],
       trim: true,
-      minlength: [2, 'First name must be at least 2 characters'],
+      minlength: [2, "First name must be at least 2 characters"],
     },
     lastName: {
       type: String,
-      required: [true, 'Last name is required'],
+      required: [true, "Last name is required"],
       trim: true,
-      minlength: [2, 'Last name must be at least 2 characters'],
+      minlength: [2, "Last name must be at least 2 characters"],
     },
     email: {
       type: String,
-      required: [true, 'Email is required'],
+      required: [true, "Email is required"],
       trim: true,
       lowercase: true,
       match: [
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-        'Please provide a valid email address',
+        "Please provide a valid email address",
       ],
     },
     subject: {
       type: String,
-      required: [true, 'Subject is required'],
+      required: [true, "Subject is required"],
       trim: true,
-      minlength: [5, 'Subject must be at least 5 characters'],
-      maxlength: [200, 'Subject cannot exceed 200 characters'],
+      minlength: [5, "Subject must be at least 5 characters"],
+      maxlength: [200, "Subject cannot exceed 200 characters"],
     },
     message: {
       type: String,
-      required: [true, 'Message is required'],
+      required: [true, "Message is required"],
       trim: true,
-      minlength: [10, 'Message must be at least 10 characters'],
-      maxlength: [2000, 'Message cannot exceed 2000 characters'],
+      minlength: [10, "Message must be at least 10 characters"],
+      maxlength: [2000, "Message cannot exceed 2000 characters"],
     },
     status: {
       type: String,
-      enum: ['new', 'in-progress', 'resolved'],
-      default: 'new',
+      enum: ["new", "in-progress", "resolved"],
+      default: "new",
     },
   },
   {
@@ -254,7 +275,7 @@ ContactMessageSchema.index({ status: 1, createdAt: -1 });
 ContactMessageSchema.index({ email: 1 });
 
 const ContactMessage = mongoose.model<IContactMessage>(
-  'ContactMessage',
+  "ContactMessage",
   ContactMessageSchema
 );
 
@@ -271,7 +292,7 @@ export const submitContactForm = async (
     if (!firstName || !lastName || !email || !subject || !message) {
       res.status(400).json({
         success: false,
-        message: 'All fields are required',
+        message: "All fields are required",
       });
       return;
     }
@@ -286,12 +307,13 @@ export const submitContactForm = async (
     });
 
     // TODO: Send email notification to admin
-    
+
     // TODO: Send confirmation email to user
 
     res.status(201).json({
       success: true,
-      message: 'Your message has been sent successfully. We will get back to you within 24 hours.',
+      message:
+        "Your message has been sent successfully. We will get back to you within 24 hours.",
       data: {
         id: contactMessage._id,
       },
@@ -350,10 +372,10 @@ export const updateContactMessageStatus = async (
     const { id } = req.params;
     const { status } = req.body;
 
-    if (!['new', 'in-progress', 'resolved'].includes(status)) {
+    if (!["new", "in-progress", "resolved"].includes(status)) {
       res.status(400).json({
         success: false,
-        message: 'Invalid status',
+        message: "Invalid status",
       });
       return;
     }
@@ -367,7 +389,7 @@ export const updateContactMessageStatus = async (
     if (!message) {
       res.status(404).json({
         success: false,
-        message: 'Contact message not found',
+        message: "Contact message not found",
       });
       return;
     }

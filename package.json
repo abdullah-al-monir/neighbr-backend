@@ -9,7 +9,11 @@
     "lint": "eslint src/**/*.ts",
     "type-check": "tsc --noEmit",
     "seed:cities": "ts-node src/scripts/seed-cities.ts",
-    "seed:artisans": "ts-node src/scripts/seed-artisans-master.ts"
+    "seed:artisans": "ts-node src/scripts/seed-artisans-master.ts",
+    "seed:fees": "ts-node src/scripts/seed-platform-fees.ts",
+    "seed:subscriptions": "ts-node src/scripts/seed-subscriptions.ts",
+    "seed:bookings": "ts-node src/scripts/seed-bookings.ts",
+    "seed:customers": "ts-node src/scripts/seed-customers.ts"
   },
   "dependencies": {
     "@emailjs/nodejs": "^5.0.2",

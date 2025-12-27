@@ -8,18 +8,9 @@ import {
 } from "../utils/cloudinaryUpload";
 import { AuthRequest } from "../middleware/auth";
 
-interface UserPayload {
-  userId: string;
-  role: "customer" | "artisan" | "admin";
-}
-
-interface CustomRequest extends Request {
-  user?: UserPayload;
-}
-
 // Create Artisan Profile
 const createArtisanProfile = async (
-  req: CustomRequest,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -120,7 +111,7 @@ const getArtisanProfile = async (
 
 // Get My Artisan Profile
 const getMyArtisanProfile = async (
-  req: CustomRequest,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -150,7 +141,7 @@ const getMyArtisanProfile = async (
 
 // Update Artisan Profile
 const updateArtisanProfile = async (
-  req: CustomRequest,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -363,7 +354,7 @@ const searchArtisans = async (
 
 // Portfolio & Availability functions remain the same
 const addPortfolio = async (
-  req: CustomRequest,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -414,7 +405,7 @@ const addPortfolio = async (
 };
 
 const deletePortfolio = async (
-  req: CustomRequest,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -461,7 +452,7 @@ const deletePortfolio = async (
 };
 
 const getAvailability = async (
-  req: CustomRequest,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -487,7 +478,7 @@ const getAvailability = async (
 };
 
 const updateAvailability = async (
-  req: CustomRequest,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
