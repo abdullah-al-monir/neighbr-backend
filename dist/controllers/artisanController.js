@@ -3,10 +3,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAvailability = exports.updateAvailability = exports.deletePortfolio = exports.addPortfolio = exports.searchArtisans = exports.updateArtisanProfile = exports.getMyArtisanProfile = exports.getArtisanProfile = exports.createArtisanProfile = void 0;
+exports.getArtisanTransactions = exports.getEarnings = exports.getAvailability = exports.updateAvailability = exports.deletePortfolio = exports.addPortfolio = exports.searchArtisans = exports.updateArtisanProfile = exports.getMyArtisanProfile = exports.getArtisanProfile = exports.createArtisanProfile = void 0;
 const Artisan_1 = __importDefault(require("../models/Artisan"));
 const City_1 = __importDefault(require("../models/City"));
 const User_1 = __importDefault(require("../models/User"));
+const Transaction_1 = __importDefault(require("../models/Transaction"));
+const Booking_1 = __importDefault(require("../models/Booking"));
 const cloudinaryUpload_1 = require("../utils/cloudinaryUpload");
 // Create Artisan Profile
 const createArtisanProfile = async (req, res, next) => {
@@ -402,4 +404,223 @@ const updateAvailability = async (req, res, next) => {
     }
 };
 exports.updateAvailability = updateAvailability;
+// Earnings
+const getEarnings = async (req, res, next) => {
+    try {
+        const artisan = await Artisan_1.default.findOne({ userId: req.user?.userId });
+        if (!artisan) {
+            res.status(404).json({
+                success: false,
+                message: "Artisan profile not found",
+            });
+            return;
+        }
+        const completedBookings = await Booking_1.default.find({
+            artisanId: artisan._id,
+            status: "completed",
+            paymentStatus: "paid",
+        });
+        const completedBookingIds = completedBookings.map((b) => b._id);
+        const transactions = await Transaction_1.default.find({
+            bookingId: { $in: completedBookingIds },
+            type: "booking",
+            status: "completed",
+        })
+            .populate("bookingId", "serviceType amount status scheduledDate customerId")
+            .populate({
+            path: "bookingId",
+            populate: {
+                path: "customerId",
+                select: "name email",
+            },
+        });
+        // Calculate total earnings (net amount after platform fee)
+        const totalEarnings = transactions.reduce((sum, t) => sum + t.netAmount, 0);
+        // Calculate this month's earnings
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+        const thisMonthEarnings = transactions
+            .filter((t) => new Date(t.createdAt) >= startOfMonth)
+            .reduce((sum, t) => sum + t.netAmount, 0);
+        // Calculate pending earnings (in-progress and confirmed bookings that are paid but not completed)
+        const pendingBookings = await Booking_1.default.find({
+            artisanId: artisan._id,
+            status: { $in: ["confirmed", "in-progress"] },
+            paymentStatus: "paid",
+            escrowReleased: false,
+        });
+        const pendingEarnings = pendingBookings.reduce((sum, b) => {
+            // Calculate net amount (assuming 10% platform fee, adjust as needed)
+            const platformFee = b.amount * 0.1;
+            const netAmount = b.amount - platformFee;
+            return sum + netAmount;
+        }, 0);
+        // Available for payout (completed and escrow released)
+        const availableBookings = await Booking_1.default.find({
+            artisanId: artisan._id,
+            status: "completed",
+            paymentStatus: "paid",
+            escrowReleased: true,
+        });
+        // Get transactions for available bookings that haven't been paid out yet
+        const availableTransactions = await Transaction_1.default.find({
+            bookingId: { $in: availableBookings.map((b) => b._id) },
+            type: "booking",
+            status: "completed",
+            "metadata.payoutStatus": { $ne: "paid" },
+        });
+        const availableEarnings = availableTransactions.reduce((sum, t) => sum + t.netAmount, 0);
+        // Get earnings breakdown by month (last 6 months)
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        const monthlyBreakdown = await Transaction_1.default.aggregate([
+            {
+                $match: {
+                    bookingId: { $in: completedBookingIds },
+                    type: "booking",
+                    status: "completed",
+                    createdAt: { $gte: sixMonthsAgo },
+                },
+            },
+            {
+                $group: {
+                    _id: {
+                        year: { $year: "$createdAt" },
+                        month: { $month: "$createdAt" },
+                    },
+                    totalAmount: { $sum: "$amount" },
+                    netAmount: { $sum: "$netAmount" },
+                    platformFee: { $sum: "$platformFee" },
+                    count: { $sum: 1 },
+                },
+            },
+            {
+                $sort: { "_id.year": 1, "_id.month": 1 },
+            },
+        ]);
+        // Recent transactions (last 10)
+        const recentTransactions = transactions
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .slice(0, 10)
+            .map((t) => ({
+            _id: t._id,
+            amount: t.amount,
+            netAmount: t.netAmount,
+            platformFee: t.platformFee,
+            status: t.status,
+            createdAt: t.createdAt,
+            booking: t.bookingId
+                ? {
+                    _id: t.bookingId._id,
+                    serviceType: t.bookingId.serviceType,
+                    scheduledDate: t.bookingId.scheduledDate,
+                    customer: t.bookingId.customerId,
+                }
+                : null,
+        }));
+        // Calculate statistics
+        const stats = {
+            totalBookings: completedBookings.length,
+            averageEarningPerBooking: completedBookings.length > 0
+                ? totalEarnings / completedBookings.length
+                : 0,
+            totalPlatformFees: transactions.reduce((sum, t) => sum + t.platformFee, 0),
+            completionRate: artisan.completedJobs > 0
+                ? (artisan.completedJobs /
+                    (artisan.completedJobs + pendingBookings.length)) *
+                    100
+                : 0,
+        };
+        res.status(200).json({
+            success: true,
+            earnings: {
+                total: totalEarnings,
+                thisMonth: thisMonthEarnings,
+                pending: pendingEarnings,
+                available: availableEarnings,
+                monthlyBreakdown,
+                recentTransactions,
+                stats,
+            },
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.getEarnings = getEarnings;
+const getArtisanTransactions = async (req, res, next) => {
+    try {
+        const userId = req.user?.userId;
+        const { page = 1, limit = 20, status, search } = req.query;
+        // Get artisan profile
+        const artisan = await Artisan_1.default.findOne({ userId });
+        if (!artisan) {
+            res.status(404).json({
+                success: false,
+                message: "Artisan profile not found",
+            });
+            return;
+        }
+        // Get all bookings for this artisan
+        const artisanBookings = await Booking_1.default.find({
+            artisanId: artisan._id,
+        }).select("_id");
+        const bookingIds = artisanBookings.map((b) => b._id);
+        const query = {
+            bookingId: { $in: bookingIds },
+            type: "booking", // Artisans only see booking transactions
+        };
+        // Status filter
+        if (status && status !== "all") {
+            query.status = status;
+        }
+        // Search filter (by customer name, email, or payment intent ID)
+        if (search) {
+            const searchRegex = new RegExp(search, "i");
+            // Find bookings with matching service type
+            const matchingBookings = await Booking_1.default.find({
+                artisanId: artisan._id,
+                serviceType: searchRegex,
+            }).select("_id");
+            const matchingBookingIds = matchingBookings.map((b) => b._id);
+            query.$or = [
+                { bookingId: { $in: matchingBookingIds } },
+                { stripePaymentIntentId: searchRegex },
+            ];
+        }
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const [transactions, total] = await Promise.all([
+            Transaction_1.default.find(query)
+                .populate("userId", "name email")
+                .populate({
+                path: "bookingId",
+                select: "serviceType scheduledDate amount customerId",
+                populate: {
+                    path: "customerId",
+                    select: "name email",
+                },
+            })
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(parseInt(limit)),
+            Transaction_1.default.countDocuments(query),
+        ]);
+        res.status(200).json({
+            success: true,
+            data: transactions,
+            pagination: {
+                total,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                totalPages: Math.ceil(total / parseInt(limit)),
+            },
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.getArtisanTransactions = getArtisanTransactions;
 //# sourceMappingURL=artisanController.js.map

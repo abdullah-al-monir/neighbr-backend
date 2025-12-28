@@ -9,6 +9,8 @@ import {
   updateAvailability,
   getMyArtisanProfile,
   getAvailability,
+  getEarnings,
+  getArtisanTransactions,
 } from "../controllers/artisanController";
 import { authenticate, optionalAuth } from "../middleware/auth";
 import { requireArtisan } from "../middleware/roleCheck";
@@ -52,7 +54,7 @@ router.post(
 );
 router.get("/availability", authenticate, requireArtisan, getAvailability);
 
-router.get("/:id", mongoIdValidation, getArtisanProfile);
+router.get("/profile/:id", mongoIdValidation, getArtisanProfile);
 router.delete(
   "/portfolio/:portfolioId",
   authenticate,
@@ -60,6 +62,15 @@ router.delete(
   deletePortfolio
 );
 router.put("/availability", authenticate, requireArtisan, updateAvailability);
+
+router.get("/earnings", authenticate, requireArtisan, getEarnings);
+
+router.get(
+  "/transactions",
+  authenticate,
+  requireArtisan,
+  getArtisanTransactions
+);
 
 // Public routes
 router.get("/subscriptions/fees", getAllPlatformFees);

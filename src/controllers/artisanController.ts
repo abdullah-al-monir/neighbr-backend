@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from "express";
 import Artisan from "../models/Artisan";
 import City from "../models/City";
 import User from "../models/User";
+import Transaction from "../models/Transaction";
+import Booking from "../models/Booking";
 import {
   deleteFromCloudinary,
   uploadToCloudinary,
@@ -508,6 +510,273 @@ const updateAvailability = async (
   }
 };
 
+// Earnings
+const getEarnings = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const artisan = await Artisan.findOne({ userId: req.user?.userId });
+
+    if (!artisan) {
+      res.status(404).json({
+        success: false,
+        message: "Artisan profile not found",
+      });
+      return;
+    }
+
+    const completedBookings = await Booking.find({
+      artisanId: artisan._id,
+      status: "completed",
+      paymentStatus: "paid",
+    });
+
+    const completedBookingIds = completedBookings.map((b) => b._id);
+
+    const transactions = await Transaction.find({
+      bookingId: { $in: completedBookingIds },
+      type: "booking",
+      status: "completed",
+    })
+      .populate(
+        "bookingId",
+        "serviceType amount status scheduledDate customerId"
+      )
+      .populate({
+        path: "bookingId",
+        populate: {
+          path: "customerId",
+          select: "name email",
+        },
+      });
+
+    // Calculate total earnings (net amount after platform fee)
+    const totalEarnings = transactions.reduce((sum, t) => sum + t.netAmount, 0);
+
+    // Calculate this month's earnings
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const thisMonthEarnings = transactions
+      .filter((t) => new Date(t.createdAt) >= startOfMonth)
+      .reduce((sum, t) => sum + t.netAmount, 0);
+
+    // Calculate pending earnings (in-progress and confirmed bookings that are paid but not completed)
+    const pendingBookings = await Booking.find({
+      artisanId: artisan._id,
+      status: { $in: ["confirmed", "in-progress"] },
+      paymentStatus: "paid",
+      escrowReleased: false,
+    });
+
+    const pendingEarnings = pendingBookings.reduce((sum, b) => {
+      // Calculate net amount (assuming 10% platform fee, adjust as needed)
+      const platformFee = b.amount * 0.1;
+      const netAmount = b.amount - platformFee;
+      return sum + netAmount;
+    }, 0);
+
+    // Available for payout (completed and escrow released)
+    const availableBookings = await Booking.find({
+      artisanId: artisan._id,
+      status: "completed",
+      paymentStatus: "paid",
+      escrowReleased: true,
+    });
+
+    // Get transactions for available bookings that haven't been paid out yet
+    const availableTransactions = await Transaction.find({
+      bookingId: { $in: availableBookings.map((b) => b._id) },
+      type: "booking",
+      status: "completed",
+      "metadata.payoutStatus": { $ne: "paid" },
+    });
+
+    const availableEarnings = availableTransactions.reduce(
+      (sum, t) => sum + t.netAmount,
+      0
+    );
+
+    // Get earnings breakdown by month (last 6 months)
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const monthlyBreakdown = await Transaction.aggregate([
+      {
+        $match: {
+          bookingId: { $in: completedBookingIds },
+          type: "booking",
+          status: "completed",
+          createdAt: { $gte: sixMonthsAgo },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" },
+          },
+          totalAmount: { $sum: "$amount" },
+          netAmount: { $sum: "$netAmount" },
+          platformFee: { $sum: "$platformFee" },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { "_id.year": 1, "_id.month": 1 },
+      },
+    ]);
+
+    // Recent transactions (last 10)
+    const recentTransactions = transactions
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+      .slice(0, 10)
+      .map((t) => ({
+        _id: t._id,
+        amount: t.amount,
+        netAmount: t.netAmount,
+        platformFee: t.platformFee,
+        status: t.status,
+        createdAt: t.createdAt,
+        booking: t.bookingId
+          ? {
+              _id: (t.bookingId as any)._id,
+              serviceType: (t.bookingId as any).serviceType,
+              scheduledDate: (t.bookingId as any).scheduledDate,
+              customer: (t.bookingId as any).customerId,
+            }
+          : null,
+      }));
+
+    // Calculate statistics
+    const stats = {
+      totalBookings: completedBookings.length,
+      averageEarningPerBooking:
+        completedBookings.length > 0
+          ? totalEarnings / completedBookings.length
+          : 0,
+      totalPlatformFees: transactions.reduce(
+        (sum, t) => sum + t.platformFee,
+        0
+      ),
+      completionRate:
+        artisan.completedJobs > 0
+          ? (artisan.completedJobs /
+              (artisan.completedJobs + pendingBookings.length)) *
+            100
+          : 0,
+    };
+
+    res.status(200).json({
+      success: true,
+      earnings: {
+        total: totalEarnings,
+        thisMonth: thisMonthEarnings,
+        pending: pendingEarnings,
+        available: availableEarnings,
+        monthlyBreakdown,
+        recentTransactions,
+        stats,
+      },
+    });
+  } catch (error: any) {
+    next(error);
+  }
+};
+
+const getArtisanTransactions = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    const { page = 1, limit = 20, status, search } = req.query;
+
+    // Get artisan profile
+    const artisan = await Artisan.findOne({ userId });
+    if (!artisan) {
+      res.status(404).json({
+        success: false,
+        message: "Artisan profile not found",
+      });
+      return;
+    }
+
+    // Get all bookings for this artisan
+    const artisanBookings = await Booking.find({
+      artisanId: artisan._id,
+    }).select("_id");
+    const bookingIds = artisanBookings.map((b) => b._id);
+
+    const query: any = {
+      bookingId: { $in: bookingIds },
+      type: "booking", // Artisans only see booking transactions
+    };
+
+    // Status filter
+    if (status && status !== "all") {
+      query.status = status;
+    }
+
+    // Search filter (by customer name, email, or payment intent ID)
+    if (search) {
+      const searchRegex = new RegExp(search as string, "i");
+
+      // Find bookings with matching service type
+      const matchingBookings = await Booking.find({
+        artisanId: artisan._id,
+        serviceType: searchRegex,
+      }).select("_id");
+
+      const matchingBookingIds = matchingBookings.map((b) => b._id);
+
+      query.$or = [
+        { bookingId: { $in: matchingBookingIds } },
+        { stripePaymentIntentId: searchRegex },
+      ];
+    }
+
+    const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+
+    const [transactions, total] = await Promise.all([
+      Transaction.find(query)
+        .populate("userId", "name email")
+        .populate({
+          path: "bookingId",
+          select: "serviceType scheduledDate amount customerId",
+          populate: {
+            path: "customerId",
+            select: "name email",
+          },
+        })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit as string)),
+      Transaction.countDocuments(query),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: transactions,
+      pagination: {
+        total,
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        totalPages: Math.ceil(total / parseInt(limit as string)),
+      },
+    });
+  } catch (error: any) {
+    next(error);
+  }
+};
+
 export {
   createArtisanProfile,
   getArtisanProfile,
@@ -518,4 +787,6 @@ export {
   deletePortfolio,
   updateAvailability,
   getAvailability,
+  getEarnings,
+  getArtisanTransactions
 };

@@ -530,17 +530,34 @@ const getTransactionById = async (req, res, next) => {
 exports.getTransactionById = getTransactionById;
 const getAllTransactions = async (req, res, next) => {
     try {
-        const { page = 1, limit = 20, status, type } = req.query;
+        const { page = 1, limit = 20, status, type, search } = req.query;
         const query = {};
-        if (status)
+        // Status filter
+        if (status && status !== "all") {
             query.status = status;
-        if (type)
+        }
+        // Type filter
+        if (type && type !== "all") {
             query.type = type;
+        }
+        // Search filter (by user name, email, or payment intent ID)
+        if (search) {
+            const searchRegex = new RegExp(search, "i");
+            // Find matching users
+            const matchingUsers = await User_1.default.find({
+                $or: [{ name: searchRegex }, { email: searchRegex }],
+            }).select("_id");
+            const userIds = matchingUsers.map((u) => u._id);
+            query.$or = [
+                { userId: { $in: userIds } },
+                { stripePaymentIntentId: searchRegex },
+            ];
+        }
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const [transactions, total] = await Promise.all([
             Transaction_1.default.find(query)
                 .populate("userId", "name email")
-                .populate("bookingId", "serviceType scheduledDate")
+                .populate("bookingId", "serviceType scheduledDate amount")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(parseInt(limit)),

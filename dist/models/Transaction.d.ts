@@ -9,6 +9,8 @@ export interface ITransaction extends Document {
     stripePaymentIntentId: string;
     status: "pending" | "completed" | "failed";
     metadata?: Record<string, any>;
+    createdAt: Date;
+    updatedAt: Date;
 }
 declare const _default: mongoose.Model<ITransaction, {}, {}, {}, mongoose.Document<unknown, {}, ITransaction, {}, mongoose.DefaultSchemaOptions> & ITransaction & Required<{
     _id: mongoose.Types.ObjectId;

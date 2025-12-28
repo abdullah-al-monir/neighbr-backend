@@ -636,18 +636,43 @@ export const getAllTransactions = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { page = 1, limit = 20, status, type } = req.query;
+    const { page = 1, limit = 20, status, type, search } = req.query;
 
     const query: any = {};
-    if (status) query.status = status;
-    if (type) query.type = type;
+
+    // Status filter
+    if (status && status !== "all") {
+      query.status = status;
+    }
+
+    // Type filter
+    if (type && type !== "all") {
+      query.type = type;
+    }
+
+    // Search filter (by user name, email, or payment intent ID)
+    if (search) {
+      const searchRegex = new RegExp(search as string, "i");
+
+      // Find matching users
+      const matchingUsers = await User.find({
+        $or: [{ name: searchRegex }, { email: searchRegex }],
+      }).select("_id");
+
+      const userIds = matchingUsers.map((u) => u._id);
+
+      query.$or = [
+        { userId: { $in: userIds } },
+        { stripePaymentIntentId: searchRegex },
+      ];
+    }
 
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
 
     const [transactions, total] = await Promise.all([
       Transaction.find(query)
         .populate("userId", "name email")
-        .populate("bookingId", "serviceType scheduledDate")
+        .populate("bookingId", "serviceType scheduledDate amount")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit as string)),

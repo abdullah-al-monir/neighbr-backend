@@ -9,5 +9,7 @@ declare const addPortfolio: (req: AuthRequest, res: Response, next: NextFunction
 declare const deletePortfolio: (req: AuthRequest, res: Response, next: NextFunction) => Promise<void>;
 declare const getAvailability: (req: AuthRequest, res: Response, next: NextFunction) => Promise<void>;
 declare const updateAvailability: (req: AuthRequest, res: Response, next: NextFunction) => Promise<void>;
-export { createArtisanProfile, getArtisanProfile, getMyArtisanProfile, updateArtisanProfile, searchArtisans, addPortfolio, deletePortfolio, updateAvailability, getAvailability, };
+declare const getEarnings: (req: AuthRequest, res: Response, next: NextFunction) => Promise<void>;
+declare const getArtisanTransactions: (req: AuthRequest, res: Response, next: NextFunction) => Promise<void>;
+export { createArtisanProfile, getArtisanProfile, getMyArtisanProfile, updateArtisanProfile, searchArtisans, addPortfolio, deletePortfolio, updateAvailability, getAvailability, getEarnings, getArtisanTransactions };
 //# sourceMappingURL=artisanController.d.ts.map

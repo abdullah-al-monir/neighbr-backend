@@ -20,9 +20,11 @@ router.post("/profile", auth_1.authenticate, validation_1.createArtisanValidatio
 router.put("/profile", auth_1.authenticate, roleCheck_1.requireArtisan, artisanController_1.updateArtisanProfile);
 router.post("/portfolio", auth_1.authenticate, roleCheck_1.requireArtisan, upload_1.upload.array("images", 10), validation_1.addPortfolioValidation, artisanController_1.addPortfolio);
 router.get("/availability", auth_1.authenticate, roleCheck_1.requireArtisan, artisanController_1.getAvailability);
-router.get("/:id", validation_1.mongoIdValidation, artisanController_1.getArtisanProfile);
+router.get("/profile/:id", validation_1.mongoIdValidation, artisanController_1.getArtisanProfile);
 router.delete("/portfolio/:portfolioId", auth_1.authenticate, roleCheck_1.requireArtisan, artisanController_1.deletePortfolio);
 router.put("/availability", auth_1.authenticate, roleCheck_1.requireArtisan, artisanController_1.updateAvailability);
+router.get("/earnings", auth_1.authenticate, roleCheck_1.requireArtisan, artisanController_1.getEarnings);
+router.get("/transactions", auth_1.authenticate, roleCheck_1.requireArtisan, artisanController_1.getArtisanTransactions);
 // Public routes
 router.get("/subscriptions/fees", platformFeeController_1.getAllPlatformFees);
 router.get("/subscriptions/plans", subscriptionSettingsController_1.getSubscriptionPlans);

@@ -10,6 +10,8 @@ export interface ITransaction extends Document {
   stripePaymentIntentId: string;
   status: "pending" | "completed" | "failed";
   metadata?: Record<string, any>;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const TransactionSchema = new Schema<ITransaction>(
