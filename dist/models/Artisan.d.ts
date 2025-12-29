@@ -1,4 +1,4 @@
-import mongoose, { Document } from 'mongoose';
+import mongoose, { Document } from "mongoose";
 export interface IPortfolio {
     title: string;
     description: string;
@@ -26,7 +26,7 @@ export interface IArtisan extends Document {
     completedJobs: number;
     availability: IAvailability[];
     hourlyRate: number;
-    subscriptionTier: 'free' | 'basic' | 'premium';
+    subscriptionTier: "free" | "basic" | "premium";
     subscriptionExpiresAt?: Date;
     verified: boolean;
     verificationDocuments?: string[];
@@ -37,6 +37,8 @@ export interface IArtisan extends Document {
         address: string;
         cityId: mongoose.Types.ObjectId;
     };
+    subscriptionExpiryNotified: boolean;
+    subscriptionExpiredNotified: boolean;
 }
 declare const _default: mongoose.Model<IArtisan, {}, {}, {}, mongoose.Document<unknown, {}, IArtisan, {}, mongoose.DefaultSchemaOptions> & IArtisan & Required<{
     _id: mongoose.Types.ObjectId;

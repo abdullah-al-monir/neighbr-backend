@@ -3,13 +3,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getArtisanTransactions = exports.getEarnings = exports.getAvailability = exports.updateAvailability = exports.deletePortfolio = exports.addPortfolio = exports.searchArtisans = exports.updateArtisanProfile = exports.getMyArtisanProfile = exports.getArtisanProfile = exports.createArtisanProfile = void 0;
+exports.getArtisanDashboard = exports.getArtisanTransactions = exports.getEarnings = exports.getAvailability = exports.updateAvailability = exports.deletePortfolio = exports.addPortfolio = exports.searchArtisans = exports.updateArtisanProfile = exports.getMyArtisanProfile = exports.getArtisanProfile = exports.createArtisanProfile = void 0;
 const Artisan_1 = __importDefault(require("../models/Artisan"));
 const City_1 = __importDefault(require("../models/City"));
 const User_1 = __importDefault(require("../models/User"));
 const Transaction_1 = __importDefault(require("../models/Transaction"));
 const Booking_1 = __importDefault(require("../models/Booking"));
 const cloudinaryUpload_1 = require("../utils/cloudinaryUpload");
+const Review_1 = __importDefault(require("../models/Review"));
 // Create Artisan Profile
 const createArtisanProfile = async (req, res, next) => {
     try {
@@ -623,4 +624,201 @@ const getArtisanTransactions = async (req, res, next) => {
     }
 };
 exports.getArtisanTransactions = getArtisanTransactions;
+const getArtisanDashboard = async (req, res, next) => {
+    try {
+        const userId = req.user?.userId;
+        // Get artisan profile with user details
+        const artisan = await Artisan_1.default.findOne({ userId })
+            .populate("userId", "name email phone avatar")
+            .populate("location.cityId", "name division district area");
+        if (!artisan) {
+            res.status(404).json({
+                success: false,
+                message: "Artisan profile not found",
+            });
+            return;
+        }
+        // Get all bookings
+        const allBookings = await Booking_1.default.find({ artisanId: artisan._id });
+        // Booking statistics
+        const bookingStats = {
+            total: allBookings.length,
+            pending: allBookings.filter((b) => b.status === "pending").length,
+            confirmed: allBookings.filter((b) => b.status === "confirmed").length,
+            inProgress: allBookings.filter((b) => b.status === "in-progress").length,
+            completed: allBookings.filter((b) => b.status === "completed").length,
+            cancelled: allBookings.filter((b) => b.status === "cancelled").length,
+        };
+        // Get completed bookings for transactions
+        const completedBookings = allBookings.filter((b) => b.status === "completed" && b.paymentStatus === "paid");
+        const completedBookingIds = completedBookings.map((b) => b._id);
+        // Get all transactions
+        const transactions = await Transaction_1.default.find({
+            bookingId: { $in: completedBookingIds },
+            type: "booking",
+            status: "completed",
+        });
+        // Calculate earnings
+        const totalEarnings = transactions.reduce((sum, t) => sum + t.netAmount, 0);
+        const totalPlatformFees = transactions.reduce((sum, t) => sum + t.platformFee, 0);
+        // This month earnings
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+        const thisMonthEarnings = transactions
+            .filter((t) => new Date(t.createdAt) >= startOfMonth)
+            .reduce((sum, t) => sum + t.netAmount, 0);
+        // Pending earnings (confirmed/in-progress bookings)
+        const pendingBookings = allBookings.filter((b) => ["confirmed", "in-progress"].includes(b.status) &&
+            b.paymentStatus === "paid" &&
+            !b.escrowReleased);
+        const pendingEarnings = pendingBookings.reduce((sum, b) => {
+            const platformFee = b.amount * 0.1;
+            return sum + (b.amount - platformFee);
+        }, 0);
+        // Recent bookings (last 5)
+        const recentBookings = await Booking_1.default.find({ artisanId: artisan._id })
+            .sort({ createdAt: -1 })
+            .limit(5)
+            .populate("customerId", "name email avatar")
+            .select("serviceType scheduledDate status amount createdAt");
+        // Get reviews stats
+        const reviews = await Review_1.default.find({ artisanId: artisan._id });
+        const reviewStats = {
+            total: reviews.length,
+            average: artisan.rating,
+            distribution: {
+                5: reviews.filter((r) => r.rating === 5).length,
+                4: reviews.filter((r) => r.rating === 4).length,
+                3: reviews.filter((r) => r.rating === 3).length,
+                2: reviews.filter((r) => r.rating === 2).length,
+                1: reviews.filter((r) => r.rating === 1).length,
+            },
+        };
+        // Monthly analytics (last 6 months)
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        const monthlyBookings = await Booking_1.default.aggregate([
+            {
+                $match: {
+                    artisanId: artisan._id,
+                    createdAt: { $gte: sixMonthsAgo },
+                },
+            },
+            {
+                $group: {
+                    _id: {
+                        year: { $year: "$createdAt" },
+                        month: { $month: "$createdAt" },
+                    },
+                    count: { $sum: 1 },
+                    completed: {
+                        $sum: { $cond: [{ $eq: ["$status", "completed"] }, 1, 0] },
+                    },
+                    revenue: {
+                        $sum: { $cond: [{ $eq: ["$status", "completed"] }, "$amount", 0] },
+                    },
+                },
+            },
+            {
+                $sort: { "_id.year": 1, "_id.month": 1 },
+            },
+        ]);
+        // Calculate monthly earnings from transactions
+        const monthlyEarnings = await Transaction_1.default.aggregate([
+            {
+                $match: {
+                    bookingId: { $in: completedBookingIds },
+                    type: "booking",
+                    status: "completed",
+                    createdAt: { $gte: sixMonthsAgo },
+                },
+            },
+            {
+                $group: {
+                    _id: {
+                        year: { $year: "$createdAt" },
+                        month: { $month: "$createdAt" },
+                    },
+                    totalAmount: { $sum: "$amount" },
+                    netAmount: { $sum: "$netAmount" },
+                    platformFee: { $sum: "$platformFee" },
+                    count: { $sum: 1 },
+                },
+            },
+            {
+                $sort: { "_id.year": 1, "_id.month": 1 },
+            },
+        ]);
+        // Profile completion percentage
+        const profileCompletion = calculateProfileCompletion(artisan);
+        // Subscription info
+        const subscriptionInfo = {
+            tier: artisan.subscriptionTier,
+            expiresAt: artisan.subscriptionExpiresAt,
+            isActive: artisan.subscriptionExpiresAt
+                ? new Date(artisan.subscriptionExpiresAt) > new Date()
+                : artisan.subscriptionTier === "free",
+        };
+        res.status(200).json({
+            success: true,
+            data: {
+                profile: {
+                    businessName: artisan.businessName,
+                    category: artisan.category,
+                    rating: artisan.rating,
+                    reviewCount: artisan.reviewCount,
+                    completedJobs: artisan.completedJobs,
+                    verified: artisan.verified,
+                    location: artisan.location,
+                    hourlyRate: artisan.hourlyRate,
+                    profileCompletion,
+                    user: artisan.userId,
+                },
+                subscription: subscriptionInfo,
+                bookings: bookingStats,
+                earnings: {
+                    total: totalEarnings,
+                    thisMonth: thisMonthEarnings,
+                    pending: pendingEarnings,
+                    platformFees: totalPlatformFees,
+                },
+                reviews: reviewStats,
+                recentBookings,
+                analytics: {
+                    monthlyBookings,
+                    monthlyEarnings,
+                },
+            },
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.getArtisanDashboard = getArtisanDashboard;
+// Helper function to calculate profile completion
+function calculateProfileCompletion(artisan) {
+    let completion = 0;
+    const fields = [
+        { check: artisan.businessName, weight: 10 },
+        { check: artisan.category, weight: 10 },
+        { check: artisan.bio && artisan.bio.length >= 50, weight: 15 },
+        { check: artisan.skills && artisan.skills.length > 0, weight: 10 },
+        { check: artisan.portfolio && artisan.portfolio.length > 0, weight: 20 },
+        { check: artisan.hourlyRate && artisan.hourlyRate > 0, weight: 10 },
+        { check: artisan.location && artisan.location.address, weight: 10 },
+        {
+            check: artisan.availability && artisan.availability.length > 0,
+            weight: 10,
+        },
+        { check: artisan.userId && artisan.userId.avatar, weight: 5 },
+    ];
+    fields.forEach((field) => {
+        if (field.check) {
+            completion += field.weight;
+        }
+    });
+    return completion;
+}
 //# sourceMappingURL=artisanController.js.map

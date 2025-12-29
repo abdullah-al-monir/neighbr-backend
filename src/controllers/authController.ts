@@ -14,6 +14,10 @@ import {
   sendPasswordChangedEmail,
 } from "../services/emailService";
 import { logger } from "../utils/logger";
+import {
+  createNotification,
+  NotificationTemplates,
+} from "../services/notificationService";
 
 const COOKIE_OPTIONS = getCookieOptions();
 
@@ -396,7 +400,10 @@ export const forgotPassword = async (
 
     // Send password reset email
     await sendPasswordResetEmail(user.email, resetToken);
-
+    await createNotification({
+      userId: user._id,
+      ...NotificationTemplates.passwordResetRequested(),
+    });
     res.status(200).json({
       success: true,
       message: "If the email exists, a reset link has been sent",
@@ -546,7 +553,10 @@ export const changePassword = async (
     sendPasswordChangedEmail(user.email, user.name).catch((err) => {
       logger.error("Failed to send password change email:", err);
     });
-
+    await createNotification({
+      userId: req.user?.userId as string,
+      ...NotificationTemplates.passwordChanged(),
+    });
     res.status(200).json({
       success: true,
       message:

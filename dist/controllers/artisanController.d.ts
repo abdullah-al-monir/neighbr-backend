@@ -11,5 +11,6 @@ declare const getAvailability: (req: AuthRequest, res: Response, next: NextFunct
 declare const updateAvailability: (req: AuthRequest, res: Response, next: NextFunction) => Promise<void>;
 declare const getEarnings: (req: AuthRequest, res: Response, next: NextFunction) => Promise<void>;
 declare const getArtisanTransactions: (req: AuthRequest, res: Response, next: NextFunction) => Promise<void>;
-export { createArtisanProfile, getArtisanProfile, getMyArtisanProfile, updateArtisanProfile, searchArtisans, addPortfolio, deletePortfolio, updateAvailability, getAvailability, getEarnings, getArtisanTransactions };
+declare const getArtisanDashboard: (req: AuthRequest, res: Response, next: NextFunction) => Promise<void>;
+export { createArtisanProfile, getArtisanProfile, getMyArtisanProfile, updateArtisanProfile, searchArtisans, addPortfolio, deletePortfolio, updateAvailability, getAvailability, getEarnings, getArtisanTransactions, getArtisanDashboard, };
 //# sourceMappingURL=artisanController.d.ts.map

@@ -12,6 +12,7 @@ const cloudinaryUpload_1 = require("../utils/cloudinaryUpload");
 const City_1 = __importDefault(require("../models/City"));
 const emailService_1 = require("../services/emailService");
 const logger_1 = require("../utils/logger");
+const notificationService_1 = require("../services/notificationService");
 const COOKIE_OPTIONS = (0, cookieOptions_1.getCookieOptions)();
 const register = async (req, res, next) => {
     try {
@@ -308,6 +309,10 @@ const forgotPassword = async (req, res, next) => {
         await user.save();
         // Send password reset email
         await (0, emailService_1.sendPasswordResetEmail)(user.email, resetToken);
+        await (0, notificationService_1.createNotification)({
+            userId: user._id,
+            ...notificationService_1.NotificationTemplates.passwordResetRequested(),
+        });
         res.status(200).json({
             success: true,
             message: "If the email exists, a reset link has been sent",
@@ -429,6 +434,10 @@ const changePassword = async (req, res, next) => {
         await user.save();
         (0, emailService_1.sendPasswordChangedEmail)(user.email, user.name).catch((err) => {
             logger_1.logger.error("Failed to send password change email:", err);
+        });
+        await (0, notificationService_1.createNotification)({
+            userId: req.user?.userId,
+            ...notificationService_1.NotificationTemplates.passwordChanged(),
         });
         res.status(200).json({
             success: true,

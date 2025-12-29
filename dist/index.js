@@ -22,6 +22,7 @@ const bookingRoutes_1 = __importDefault(require("./routes/bookingRoutes"));
 const paymentRoutes_1 = __importDefault(require("./routes/paymentRoutes"));
 const reviewRoutes_1 = __importDefault(require("./routes/reviewRoutes"));
 const adminRoutes_1 = __importDefault(require("./routes/adminRoutes"));
+const notificationRoutes_1 = __importDefault(require("./routes/notificationRoutes"));
 const publicController_1 = require("./controllers/publicController");
 const app = (0, express_1.default)();
 // ========================================
@@ -91,6 +92,8 @@ app.use("/api/bookings", bookingRoutes_1.default);
 app.use("/api/payments", paymentRoutes_1.default);
 app.use("/api/reviews", reviewRoutes_1.default);
 app.use("/api/admin", adminRoutes_1.default);
+app.use('/api/notifications', notificationRoutes_1.default);
+app.post("/api/contact", publicController_1.submitContactForm);
 // 404 handler
 app.use((_req, res) => {
     res.status(404).json({

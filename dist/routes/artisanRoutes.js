@@ -16,6 +16,7 @@ const router = express_1.default.Router();
 router.get("/search", validation_1.searchArtisansValidation, auth_1.optionalAuth, artisanController_1.searchArtisans);
 // Protected artisan routes
 router.get("/my-profile", auth_1.authenticate, artisanController_1.getMyArtisanProfile);
+router.get("/dashboard", auth_1.authenticate, roleCheck_1.requireArtisan, artisanController_1.getArtisanDashboard);
 router.post("/profile", auth_1.authenticate, validation_1.createArtisanValidation, artisanController_1.createArtisanProfile);
 router.put("/profile", auth_1.authenticate, roleCheck_1.requireArtisan, artisanController_1.updateArtisanProfile);
 router.post("/portfolio", auth_1.authenticate, roleCheck_1.requireArtisan, upload_1.upload.array("images", 10), validation_1.addPortfolioValidation, artisanController_1.addPortfolio);

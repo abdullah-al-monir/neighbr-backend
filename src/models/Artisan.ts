@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document } from "mongoose";
 
 export interface IPortfolio {
   title: string;
@@ -29,7 +29,7 @@ export interface IArtisan extends Document {
   completedJobs: number;
   availability: IAvailability[];
   hourlyRate: number;
-  subscriptionTier: 'free' | 'basic' | 'premium';
+  subscriptionTier: "free" | "basic" | "premium";
   subscriptionExpiresAt?: Date;
   verified: boolean;
   verificationDocuments?: string[];
@@ -40,6 +40,8 @@ export interface IArtisan extends Document {
     address: string;
     cityId: mongoose.Types.ObjectId;
   };
+  subscriptionExpiryNotified: boolean;
+  subscriptionExpiredNotified: boolean;
 }
 
 const PortfolioSchema = new Schema({
@@ -58,7 +60,7 @@ const PortfolioSchema = new Schema({
       validator: function (v: string[]) {
         return v.length > 0 && v.length <= 10;
       },
-      message: 'Portfolio must have 1-10 images',
+      message: "Portfolio must have 1-10 images",
     },
   },
   category: {
@@ -102,48 +104,48 @@ const ArtisanSchema = new Schema<IArtisan>(
   {
     userId: {
       type: Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
       required: true,
       unique: true,
     },
     businessName: {
       type: String,
-      required: [true, 'Business name is required'],
+      required: [true, "Business name is required"],
       trim: true,
-      minlength: [2, 'Business name must be at least 2 characters'],
-      maxlength: [100, 'Business name cannot exceed 100 characters'],
+      minlength: [2, "Business name must be at least 2 characters"],
+      maxlength: [100, "Business name cannot exceed 100 characters"],
     },
     category: {
       type: String,
-      required: [true, 'Category is required'],
+      required: [true, "Category is required"],
       enum: [
-        'baker',
-        'tailor',
-        'carpenter',
-        'electrician',
-        'plumber',
-        'painter',
-        'mechanic',
-        'gardener',
-        'cleaner',
-        'other',
+        "baker",
+        "tailor",
+        "carpenter",
+        "electrician",
+        "plumber",
+        "painter",
+        "mechanic",
+        "gardener",
+        "cleaner",
+        "other",
       ],
     },
     skills: {
       type: [String],
-      required: [true, 'At least one skill is required'],
+      required: [true, "At least one skill is required"],
       validate: {
         validator: function (v: string[]) {
           return v.length > 0 && v.length <= 20;
         },
-        message: 'Must have 1-20 skills',
+        message: "Must have 1-20 skills",
       },
     },
     bio: {
       type: String,
-      required: [true, 'Bio is required'],
-      minlength: [50, 'Bio must be at least 50 characters'],
-      maxlength: [1000, 'Bio cannot exceed 1000 characters'],
+      required: [true, "Bio is required"],
+      minlength: [50, "Bio must be at least 50 characters"],
+      maxlength: [1000, "Bio cannot exceed 1000 characters"],
     },
     portfolio: {
       type: [PortfolioSchema],
@@ -152,7 +154,7 @@ const ArtisanSchema = new Schema<IArtisan>(
         validator: function (v: IPortfolio[]) {
           return v.length <= 50;
         },
-        message: 'Cannot have more than 50 portfolio items',
+        message: "Cannot have more than 50 portfolio items",
       },
     },
     rating: {
@@ -177,14 +179,14 @@ const ArtisanSchema = new Schema<IArtisan>(
     },
     hourlyRate: {
       type: Number,
-      required: [true, 'Hourly rate is required'],
-      min: [5, 'Hourly rate must be at least $5'],
-      max: [1000, 'Hourly rate cannot exceed $1000'],
+      required: [true, "Hourly rate is required"],
+      min: [5, "Hourly rate must be at least $5"],
+      max: [1000, "Hourly rate cannot exceed $1000"],
     },
     subscriptionTier: {
       type: String,
-      enum: ['free', 'basic', 'premium'],
-      default: 'free',
+      enum: ["free", "basic", "premium"],
+      default: "free",
     },
     subscriptionExpiresAt: {
       type: Date,
@@ -200,28 +202,45 @@ const ArtisanSchema = new Schema<IArtisan>(
     location: {
       division: {
         type: String,
-        required: [true, 'Division is required'],
-        enum: ['Dhaka', 'Chattogram', 'Rajshahi', 'Khulna', 'Barishal', 'Sylhet', 'Rangpur', 'Mymensingh'],
+        required: [true, "Division is required"],
+        enum: [
+          "Dhaka",
+          "Chattogram",
+          "Rajshahi",
+          "Khulna",
+          "Barishal",
+          "Sylhet",
+          "Rangpur",
+          "Mymensingh",
+        ],
       },
       district: {
         type: String,
-        required: [true, 'District is required'],
+        required: [true, "District is required"],
         trim: true,
       },
       area: {
         type: String,
-        required: [true, 'Area is required'],
+        required: [true, "Area is required"],
         trim: true,
       },
       address: {
         type: String,
-        required: [true, 'Address is required'],
+        required: [true, "Address is required"],
       },
       cityId: {
         type: Schema.Types.ObjectId,
-        ref: 'City',
-        required: [true, 'City is required'],
+        ref: "City",
+        required: [true, "City is required"],
       },
+    },
+    subscriptionExpiryNotified: {
+      type: Boolean,
+      default: false,
+    },
+    subscriptionExpiredNotified: {
+      type: Boolean,
+      default: false,
     },
   },
   {
@@ -232,8 +251,12 @@ const ArtisanSchema = new Schema<IArtisan>(
 );
 
 // Index for location-based queries
-ArtisanSchema.index({ 'location.division': 1, 'location.district': 1, 'location.area': 1 });
-ArtisanSchema.index({ 'location.cityId': 1 });
+ArtisanSchema.index({
+  "location.division": 1,
+  "location.district": 1,
+  "location.area": 1,
+});
+ArtisanSchema.index({ "location.cityId": 1 });
 
 // Index for category and rating
 ArtisanSchema.index({ category: 1, rating: -1 });
@@ -245,19 +268,19 @@ ArtisanSchema.index({ verified: 1 });
 ArtisanSchema.index({ category: 1, verified: 1, rating: -1 });
 
 // Virtual for user details
-ArtisanSchema.virtual('user', {
-  ref: 'User',
-  localField: 'userId',
-  foreignField: '_id',
+ArtisanSchema.virtual("user", {
+  ref: "User",
+  localField: "userId",
+  foreignField: "_id",
   justOne: true,
 });
 
 // Virtual for city details
-ArtisanSchema.virtual('city', {
-  ref: 'City',
-  localField: 'location.cityId',
-  foreignField: '_id',
+ArtisanSchema.virtual("city", {
+  ref: "City",
+  localField: "location.cityId",
+  foreignField: "_id",
   justOne: true,
 });
 
-export default mongoose.model<IArtisan>('Artisan', ArtisanSchema);
+export default mongoose.model<IArtisan>("Artisan", ArtisanSchema);

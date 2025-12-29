@@ -3,6 +3,7 @@ import User from "../models/User";
 import Artisan from "../models/Artisan";
 import Booking from "../models/Booking";
 import Transaction from "../models/Transaction";
+import ContactMessage from "../models/ContactMessage";
 // import Review from "../models/Review";
 
 export const getDashboardStats = async (
@@ -679,6 +680,56 @@ export const getAllTransactions = async (
       Transaction.countDocuments(query),
     ]);
 
+    // Calculate all-time summary statistics (regardless of filters for display)
+    const allTimeStats = await Transaction.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: "$amount" },
+          totalPlatformFees: { $sum: "$platformFee" },
+          totalNetAmount: { $sum: "$netAmount" },
+          completedRevenue: {
+            $sum: { $cond: [{ $eq: ["$status", "completed"] }, "$amount", 0] },
+          },
+          completedPlatformFees: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "completed"] }, "$platformFee", 0],
+            },
+          },
+          completedCount: {
+            $sum: { $cond: [{ $eq: ["$status", "completed"] }, 1, 0] },
+          },
+          pendingCount: {
+            $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] },
+          },
+          failedCount: {
+            $sum: { $cond: [{ $eq: ["$status", "failed"] }, 1, 0] },
+          },
+        },
+      },
+    ]);
+
+    // Calculate filtered summary (based on current query)
+    const filteredStats = await Transaction.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: "$amount" },
+          totalPlatformFees: { $sum: "$platformFee" },
+          totalNetAmount: { $sum: "$netAmount" },
+          completedRevenue: {
+            $sum: { $cond: [{ $eq: ["$status", "completed"] }, "$amount", 0] },
+          },
+          completedPlatformFees: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "completed"] }, "$platformFee", 0],
+            },
+          },
+        },
+      },
+    ]);
+
     res.status(200).json({
       success: true,
       data: transactions,
@@ -687,6 +738,25 @@ export const getAllTransactions = async (
         page: parseInt(page as string),
         limit: parseInt(limit as string),
         totalPages: Math.ceil(total / parseInt(limit as string)),
+      },
+      summary: {
+        allTime: allTimeStats[0] || {
+          totalRevenue: 0,
+          totalPlatformFees: 0,
+          totalNetAmount: 0,
+          completedRevenue: 0,
+          completedPlatformFees: 0,
+          completedCount: 0,
+          pendingCount: 0,
+          failedCount: 0,
+        },
+        filtered: filteredStats[0] || {
+          totalRevenue: 0,
+          totalPlatformFees: 0,
+          totalNetAmount: 0,
+          completedRevenue: 0,
+          completedPlatformFees: 0,
+        },
       },
     });
   } catch (error: any) {
@@ -748,6 +818,99 @@ export const getCategoryStats = async (
     res.status(200).json({
       success: true,
       data: categoryStats,
+    });
+  } catch (error: any) {
+    next(error);
+  }
+};
+
+// Get all contact messages (admin only)
+export const getContactMessages = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { status, page = 1, limit = 20, search } = req.query;
+
+    const query: any = {};
+
+    // Filter by status
+    if (status) {
+      query.status = status;
+    }
+
+    // Search functionality
+    if (search) {
+      query.$or = [
+        { firstName: { $regex: search, $options: "i" } },
+        { lastName: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { subject: { $regex: search, $options: "i" } },
+        { message: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const [messages, total] = await Promise.all([
+      ContactMessage.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(Number(limit)),
+      ContactMessage.countDocuments(query),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: messages,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        pages: Math.ceil(total / Number(limit)),
+      },
+    });
+  } catch (error: any) {
+    next(error);
+  }
+};
+
+// Update contact message status (admin only)
+export const updateContactMessageStatus = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!["new", "in-progress", "resolved"].includes(status)) {
+      res.status(400).json({
+        success: false,
+        message: "Invalid status",
+      });
+      return;
+    }
+
+    const message = await ContactMessage.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    );
+
+    if (!message) {
+      res.status(404).json({
+        success: false,
+        message: "Contact message not found",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: message,
     });
   } catch (error: any) {
     next(error);

@@ -9,10 +9,10 @@ const Booking_1 = __importDefault(require("../models/Booking"));
 const Artisan_1 = __importDefault(require("../models/Artisan"));
 const mongoose_1 = __importDefault(require("mongoose"));
 const cloudinaryUpload_1 = require("../utils/cloudinaryUpload");
+const notificationService_1 = require("../services/notificationService");
 const createReview = async (req, res, next) => {
     try {
         const customerId = req.user?.userId;
-        // Convert rating from string to number (FormData sends everything as strings)
         const bookingId = req.body.bookingId;
         const rating = parseInt(req.body.rating);
         const comment = req.body.comment;
@@ -73,6 +73,12 @@ const createReview = async (req, res, next) => {
             { path: "customerId", select: "name avatar" },
             { path: "bookingId", select: "serviceType scheduledDate" },
         ]);
+        // NOTIFY ARTISAN about new review
+        const customerName = review.customerId.name;
+        await (0, notificationService_1.createNotification)({
+            userId: review.artisanId.userId._id,
+            ...notificationService_1.NotificationTemplates.newReview(customerName, rating, review._id.toString()),
+        });
         res.status(201).json({
             success: true,
             message: "Review created successfully",

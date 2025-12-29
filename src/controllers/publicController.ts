@@ -4,9 +4,11 @@ import Review from "../models/Review";
 import Booking from "../models/Booking";
 import City from "../models/City";
 import User from "../models/User";
-import mongoose from "mongoose";
 import PlatformFeeConfig from "../models/PlatformFeeConfig";
 import SubscriptionSettings from "../models/SubscriptionSettings";
+import ContactMessage from "../models/ContactMessage";
+import { sendContactConfirmation } from "../services/emailService";
+import Notification from "../models/Notification";
 
 export const getHomePageData = async (
   _req: Request,
@@ -211,74 +213,6 @@ export const getAboutPageData = async (
   }
 };
 
-interface IContactMessage extends mongoose.Document {
-  firstName: string;
-  lastName: string;
-  email: string;
-  subject: string;
-  message: string;
-  status: "new" | "in-progress" | "resolved";
-  createdAt: Date;
-}
-
-const ContactMessageSchema = new mongoose.Schema<IContactMessage>(
-  {
-    firstName: {
-      type: String,
-      required: [true, "First name is required"],
-      trim: true,
-      minlength: [2, "First name must be at least 2 characters"],
-    },
-    lastName: {
-      type: String,
-      required: [true, "Last name is required"],
-      trim: true,
-      minlength: [2, "Last name must be at least 2 characters"],
-    },
-    email: {
-      type: String,
-      required: [true, "Email is required"],
-      trim: true,
-      lowercase: true,
-      match: [
-        /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-        "Please provide a valid email address",
-      ],
-    },
-    subject: {
-      type: String,
-      required: [true, "Subject is required"],
-      trim: true,
-      minlength: [5, "Subject must be at least 5 characters"],
-      maxlength: [200, "Subject cannot exceed 200 characters"],
-    },
-    message: {
-      type: String,
-      required: [true, "Message is required"],
-      trim: true,
-      minlength: [10, "Message must be at least 10 characters"],
-      maxlength: [2000, "Message cannot exceed 2000 characters"],
-    },
-    status: {
-      type: String,
-      enum: ["new", "in-progress", "resolved"],
-      default: "new",
-    },
-  },
-  {
-    timestamps: true,
-  }
-);
-
-// Index for admin queries
-ContactMessageSchema.index({ status: 1, createdAt: -1 });
-ContactMessageSchema.index({ email: 1 });
-
-const ContactMessage = mongoose.model<IContactMessage>(
-  "ContactMessage",
-  ContactMessageSchema
-);
-
 // Submit contact form
 export const submitContactForm = async (
   req: Request,
@@ -306,9 +240,29 @@ export const submitContactForm = async (
       message,
     });
 
-    // TODO: Send email notification to admin
+    // Send confirmation email to user
+    try {
+      await sendContactConfirmation(email, firstName, subject);
+    } catch (emailError) {
+      console.error("Failed to send confirmation email:", emailError);
+    }
 
-    // TODO: Send confirmation email to user
+    // CREATE NOTIFICATION FOR ALL ADMINS (instead of email)
+    try {
+      const admins = await User.find({ role: "admin" });
+
+      const notifications = admins.map((admin) => ({
+        userId: admin._id,
+        type: "contact_inquiry",
+        title: "New Customer Inquiry",
+        message: `${firstName} ${lastName} sent an inquiry: "${subject}"`,
+        link: `/admin/support-requests/${contactMessage._id}`,
+      }));
+
+      await Notification.insertMany(notifications);
+    } catch (notificationError) {
+      console.error("Failed to create notification:", notificationError);
+    }
 
     res.status(201).json({
       success: true,
@@ -322,85 +276,3 @@ export const submitContactForm = async (
     next(error);
   }
 };
-
-// Get all contact messages (admin only)
-export const getContactMessages = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const { status, page = 1, limit = 20 } = req.query;
-
-    const query: any = {};
-    if (status) {
-      query.status = status;
-    }
-
-    const skip = (Number(page) - 1) * Number(limit);
-
-    const [messages, total] = await Promise.all([
-      ContactMessage.find(query)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(Number(limit)),
-      ContactMessage.countDocuments(query),
-    ]);
-
-    res.status(200).json({
-      success: true,
-      data: messages,
-      pagination: {
-        page: Number(page),
-        limit: Number(limit),
-        total,
-        pages: Math.ceil(total / Number(limit)),
-      },
-    });
-  } catch (error: any) {
-    next(error);
-  }
-};
-
-// Update contact message status (admin only)
-export const updateContactMessageStatus = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    if (!["new", "in-progress", "resolved"].includes(status)) {
-      res.status(400).json({
-        success: false,
-        message: "Invalid status",
-      });
-      return;
-    }
-
-    const message = await ContactMessage.findByIdAndUpdate(
-      id,
-      { status },
-      { new: true }
-    );
-
-    if (!message) {
-      res.status(404).json({
-        success: false,
-        message: "Contact message not found",
-      });
-      return;
-    }
-
-    res.status(200).json({
-      success: true,
-      data: message,
-    });
-  } catch (error: any) {
-    next(error);
-  }
-};
-
-export { ContactMessage };

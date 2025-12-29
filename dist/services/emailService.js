@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendBookingConfirmation = exports.sendPasswordChangedEmail = exports.sendPasswordResetEmail = exports.sendVerificationEmail = void 0;
+exports.sendContactConfirmation = exports.sendBookingConfirmation = exports.sendPasswordChangedEmail = exports.sendPasswordResetEmail = exports.sendVerificationEmail = void 0;
 const nodejs_1 = __importDefault(require("@emailjs/nodejs"));
 const env_1 = require("../config/env");
 const emailWrapper = (content) => `
@@ -33,10 +33,10 @@ const sendEmail = async (to, subject, htmlContent) => {
             publicKey: env_1.config.emailjsPublicKey,
             privateKey: env_1.config.emailjsPrivateKey,
         });
-        console.log('✅ Email sent successfully to:', to);
+        console.log("✅ Email sent successfully to:", to);
     }
     catch (error) {
-        console.error('EmailJS error:', error);
+        console.error("EmailJS error:", error);
         throw new Error(`Failed to send email: ${error.text || error.message}`);
     }
 };
@@ -100,8 +100,33 @@ const sendBookingConfirmation = async (email, bookingDetails) => {
       </table>
     </div>
     <p>You can view your full booking details in your dashboard.</p>
+    <p style="font-size: 14px; color: #94A3B8; margin-top: 30px;">We'll notify you once the artisan responds to your booking request.</p>
   `);
     await sendEmail(email, "Booking Confirmed - Neighbr", html);
 };
 exports.sendBookingConfirmation = sendBookingConfirmation;
+const sendContactConfirmation = async (email, firstName, subject) => {
+    const html = emailWrapper(`
+    <h2 style="color: #FDBA74; margin-top: 0;">We Received Your Message</h2>
+    <p>Hi ${firstName},</p>
+    <p>Thank you for reaching out to Neighbr. We have successfully received your message regarding "<strong>${subject}</strong>".</p>
+    
+    <div style="background-color: #334155; padding: 20px; border-radius: 10px; margin: 25px 0; border-left: 4px solid #67E8F9;">
+      <p style="margin: 0; font-size: 14px; line-height: 1.8;">
+        <strong style="color: #67E8F9;">What happens next?</strong><br/>
+        Our support team will review your inquiry and get back to you within <strong>24 hours</strong>. We're committed to providing you with the best possible assistance.
+      </p>
+    </div>
+    
+    <p>In the meantime, feel free to explore our platform or check out our <a href="${env_1.config.frontendUrl}/help" style="color: #67E8F9; text-decoration: none;">Help Center</a> for instant answers to common questions.</p>
+    
+    <p style="margin-top: 30px;">Best regards,<br/><strong style="color: #FDBA74;">The Neighbr Team</strong></p>
+    
+    <p style="font-size: 12px; color: #94A3B8; margin-top: 30px; padding-top: 20px; border-top: 1px solid #334155;">
+      If you have any urgent concerns, please don't hesitate to reach out to us directly at <a href="mailto:support@neighbr.com" style="color: #67E8F9;">support@neighbr.com</a>
+    </p>
+  `);
+    await sendEmail(email, "We Received Your Message - Neighbr", html);
+};
+exports.sendContactConfirmation = sendContactConfirmation;
 //# sourceMappingURL=emailService.js.map

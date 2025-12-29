@@ -70,7 +70,6 @@ async function seedCustomers() {
                         address: `House ${i * 3}, Flat 4B, ${city.area}`,
                         cityId: city._id,
                     },
-                    avatar: `https://ui-avatars.com/api/?name=${firstName}+${lastName}&background=random`,
                 });
             }
             await User_1.default.insertMany(customerData);

@@ -7,6 +7,10 @@ import {
   deleteFromCloudinary,
   uploadToCloudinary,
 } from "../utils/cloudinaryUpload";
+import {
+  createNotification,
+  NotificationTemplates,
+} from "../services/notificationService";
 
 export const createReview = async (
   req: Request,
@@ -15,8 +19,7 @@ export const createReview = async (
 ): Promise<void> => {
   try {
     const customerId = req.user?.userId;
-    
-    // Convert rating from string to number (FormData sends everything as strings)
+
     const bookingId = req.body.bookingId;
     const rating = parseInt(req.body.rating);
     const comment = req.body.comment;
@@ -87,6 +90,17 @@ export const createReview = async (
       { path: "customerId", select: "name avatar" },
       { path: "bookingId", select: "serviceType scheduledDate" },
     ]);
+
+    // NOTIFY ARTISAN about new review
+    const customerName = (review.customerId as any).name;
+    await createNotification({
+      userId: (review.artisanId as any).userId._id,
+      ...NotificationTemplates.newReview(
+        customerName,
+        rating,
+        review._id.toString()
+      ),
+    });
 
     res.status(201).json({
       success: true,

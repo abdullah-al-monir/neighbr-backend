@@ -3,6 +3,11 @@ import Booking from "../models/Booking";
 import Artisan from "../models/Artisan";
 import { stripe } from "../config/stripe";
 import Review from "../models/Review";
+import { sendBookingConfirmation } from "../services/emailService";
+import {
+  createNotification,
+  NotificationTemplates,
+} from "../services/notificationService";
 
 export const createBooking = async (
   req: Request,
@@ -71,6 +76,31 @@ export const createBooking = async (
         populate: { path: "userId", select: "name email phone avatar" },
       },
     ]);
+
+    // Send booking confirmation email
+    try {
+      const customerEmail = (booking.customerId as any).email;
+      await sendBookingConfirmation(customerEmail, {
+        serviceType: booking.serviceType,
+        scheduledDate: booking.scheduledDate,
+        timeSlot: booking.timeSlot,
+        amount: booking.amount,
+      });
+    } catch (emailError) {
+      console.error("Failed to send booking confirmation email:", emailError);
+    }
+
+    //  NOTIFY ARTISAN about new booking request
+    const customerName = (booking.customerId as any).name;
+    await createNotification({
+      userId: (artisan.userId as any)._id,
+      ...NotificationTemplates.newBookingRequest(
+        customerName,
+        serviceType,
+        booking._id.toString(),
+        amount
+      ),
+    });
 
     res.status(201).json({
       success: true,
@@ -306,6 +336,39 @@ export const updateBookingStatus = async (
     }
 
     await booking.save();
+
+    // 🔔 NOTIFY CUSTOMER about booking status
+    const artisanName =
+      (booking.artisanId as any).businessName ||
+      (booking.artisanId as any).userId.name;
+
+    if (status === "accepted") {
+      await createNotification({
+        userId: booking.customerId._id,
+        ...NotificationTemplates.bookingAccepted(
+          artisanName,
+          booking.serviceType,
+          booking._id.toString()
+        ),
+      });
+    } else if (status === "canceled") {
+      await createNotification({
+        userId: booking.customerId._id,
+        ...NotificationTemplates.bookingRejected(
+          artisanName,
+          booking.serviceType,
+          booking._id.toString()
+        ),
+      });
+    } else if (status === "completed") {
+      await createNotification({
+        userId: booking.customerId._id,
+        ...NotificationTemplates.bookingCompleted(
+          artisanName,
+          booking._id.toString()
+        ),
+      });
+    }
 
     res.status(200).json({
       success: true,

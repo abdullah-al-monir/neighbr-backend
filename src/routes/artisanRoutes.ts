@@ -11,6 +11,7 @@ import {
   getAvailability,
   getEarnings,
   getArtisanTransactions,
+  getArtisanDashboard,
 } from "../controllers/artisanController";
 import { authenticate, optionalAuth } from "../middleware/auth";
 import { requireArtisan } from "../middleware/roleCheck";
@@ -35,6 +36,7 @@ router.get("/search", searchArtisansValidation, optionalAuth, searchArtisans);
 
 // Protected artisan routes
 router.get("/my-profile", authenticate, getMyArtisanProfile);
+router.get("/dashboard", authenticate, requireArtisan, getArtisanDashboard);
 
 router.post(
   "/profile",

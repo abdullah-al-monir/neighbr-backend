@@ -14,6 +14,8 @@ import {
   getAllBookings,
   getBookingById,
   getTransactionById,
+  getContactMessages,
+  updateContactMessageStatus,
 } from "../controllers/adminController";
 import { authenticate } from "../middleware/auth";
 import { requireAdmin } from "../middleware/roleCheck";
@@ -122,4 +124,15 @@ router.patch(
 // Transaction Management
 router.get("/transactions", getAllTransactions);
 router.get("/transactions/:id", mongoIdValidation, getTransactionById);
+
+// Inquiries management
+router.get("/inquiries", authenticate, requireAdmin, getContactMessages);
+router.patch(
+  "/inquiries/:id/status",
+  mongoIdValidation,
+  authenticate,
+  requireAdmin,
+  updateContactMessageStatus
+);
+
 export default router;

@@ -46,5 +46,8 @@ router.patch("/subscriptions/plans/:tier/toggle", auth_1.authenticate, roleCheck
 // Transaction Management
 router.get("/transactions", adminController_1.getAllTransactions);
 router.get("/transactions/:id", validation_1.mongoIdValidation, adminController_1.getTransactionById);
+// Inquiries management
+router.get("/inquiries", auth_1.authenticate, roleCheck_1.requireAdmin, adminController_1.getContactMessages);
+router.patch("/inquiries/:id/status", validation_1.mongoIdValidation, auth_1.authenticate, roleCheck_1.requireAdmin, adminController_1.updateContactMessageStatus);
 exports.default = router;
 //# sourceMappingURL=adminRoutes.js.map

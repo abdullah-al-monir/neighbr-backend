@@ -13,4 +13,6 @@ export declare const getTransactionById: (req: Request, res: Response, next: Nex
 export declare const getAllTransactions: (req: Request, res: Response, next: NextFunction) => Promise<void>;
 export declare const deleteUser: (req: Request, res: Response, next: NextFunction) => Promise<void>;
 export declare const getCategoryStats: (_req: Request, res: Response, next: NextFunction) => Promise<void>;
+export declare const getContactMessages: (req: Request, res: Response, next: NextFunction) => Promise<void>;
+export declare const updateContactMessageStatus: (req: Request, res: Response, next: NextFunction) => Promise<void>;
 //# sourceMappingURL=adminController.d.ts.map

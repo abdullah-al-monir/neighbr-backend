@@ -9,6 +9,7 @@ const Booking_1 = __importDefault(require("../models/Booking"));
 const Transaction_1 = __importDefault(require("../models/Transaction"));
 const Artisan_1 = __importDefault(require("../models/Artisan"));
 const platformFeeController_1 = require("./platformFeeController");
+const notificationService_1 = require("../services/notificationService");
 // ============================================
 // BOOKING PAYMENT FUNCTIONS
 // ============================================
@@ -20,7 +21,7 @@ const createPaymentIntent = async (req, res, next) => {
         if (!booking) {
             res.status(404).json({
                 success: false,
-                message: 'Booking not found',
+                message: "Booking not found",
             });
             return;
         }
@@ -28,15 +29,15 @@ const createPaymentIntent = async (req, res, next) => {
         if (booking.customerId.toString() !== userId) {
             res.status(403).json({
                 success: false,
-                message: 'Not authorized',
+                message: "Not authorized",
             });
             return;
         }
         // Check if payment already exists
-        if (booking.paymentStatus === 'paid') {
+        if (booking.paymentStatus === "paid") {
             res.status(400).json({
                 success: false,
-                message: 'Booking already paid',
+                message: "Booking already paid",
             });
             return;
         }
@@ -45,7 +46,7 @@ const createPaymentIntent = async (req, res, next) => {
         if (!artisan) {
             res.status(404).json({
                 success: false,
-                message: 'Artisan not found',
+                message: "Artisan not found",
             });
             return;
         }
@@ -56,7 +57,7 @@ const createPaymentIntent = async (req, res, next) => {
         // Create payment intent
         const paymentIntent = await stripe_1.stripe.paymentIntents.create({
             amount: amountInCents,
-            currency: 'usd',
+            currency: "usd",
             metadata: {
                 bookingId: booking._id.toString(),
                 customerId: userId,
@@ -90,13 +91,13 @@ const confirmPayment = async (req, res, next) => {
         const { paymentIntentId } = req.body;
         // Retrieve payment intent from Stripe
         const paymentIntent = await stripe_1.stripe.paymentIntents.retrieve(paymentIntentId);
-        if (paymentIntent.status === 'succeeded') {
+        if (paymentIntent.status === "succeeded") {
             const bookingId = paymentIntent.metadata.bookingId;
             const booking = await Booking_1.default.findById(bookingId);
             if (!booking) {
                 res.status(404).json({
                     success: false,
-                    message: 'Booking not found',
+                    message: "Booking not found",
                 });
                 return;
             }
@@ -104,44 +105,55 @@ const confirmPayment = async (req, res, next) => {
             if (booking.customerId.toString() !== userId) {
                 res.status(403).json({
                     success: false,
-                    message: 'Not authorized',
+                    message: "Not authorized",
                 });
                 return;
             }
             // Update booking payment status
-            booking.paymentStatus = 'paid';
-            booking.status = 'confirmed';
+            booking.paymentStatus = "paid";
+            booking.status = "confirmed";
             await booking.save();
             // 🔥 GET PLATFORM FEE FROM PAYMENT INTENT METADATA
-            const platformFeePercentage = parseFloat(paymentIntent.metadata.platformFeePercentage || '10');
+            const platformFeePercentage = parseFloat(paymentIntent.metadata.platformFeePercentage || "10");
             const platformFee = (booking.amount * platformFeePercentage) / 100;
             // 🔥 CREATE TRANSACTION RECORD WITH DYNAMIC FEE
             await Transaction_1.default.create({
                 bookingId: booking._id,
                 userId: booking.customerId,
-                type: 'booking',
+                type: "booking",
                 amount: booking.amount,
                 platformFee,
                 netAmount: booking.amount - platformFee,
                 stripePaymentIntentId: paymentIntentId,
-                status: 'completed',
+                status: "completed",
                 metadata: {
                     platformFeePercentage,
-                    subscriptionTier: paymentIntent.metadata.subscriptionTier || 'free',
+                    subscriptionTier: paymentIntent.metadata.subscriptionTier || "free",
                 },
             });
             // Populate booking details for response
             await booking.populate([
-                { path: 'customerId', select: 'name email phone avatar' },
+                { path: "customerId", select: "name email phone avatar" },
                 {
-                    path: 'artisanId',
-                    select: 'businessName category hourlyRate rating reviewCount subscriptionTier',
-                    populate: { path: 'userId', select: 'name email phone avatar' },
+                    path: "artisanId",
+                    select: "businessName category hourlyRate rating reviewCount subscriptionTier",
+                    populate: { path: "userId", select: "name email phone avatar" },
                 },
             ]);
+            // NOTIFY CUSTOMER - Payment confirmed
+            await (0, notificationService_1.createNotification)({
+                userId: booking.customerId._id,
+                ...notificationService_1.NotificationTemplates.paymentConfirmed(booking.amount, booking._id.toString()),
+            });
+            // NOTIFY ARTISAN - Payment received
+            const customerName = booking.customerId.name;
+            await (0, notificationService_1.createNotification)({
+                userId: booking.artisanId.userId._id,
+                ...notificationService_1.NotificationTemplates.paymentReceived(customerName, booking.amount, booking._id.toString()),
+            });
             res.status(200).json({
                 success: true,
-                message: 'Payment confirmed',
+                message: "Payment confirmed",
                 booking,
                 // 🔥 RETURN FEE INFO (OPTIONAL - FOR DISPLAY)
                 platformFee: platformFee.toFixed(2),
@@ -151,7 +163,7 @@ const confirmPayment = async (req, res, next) => {
         else {
             res.status(400).json({
                 success: false,
-                message: 'Payment not successful',
+                message: "Payment not successful",
                 status: paymentIntent.status,
             });
         }
@@ -172,17 +184,17 @@ const createSubscription = async (req, res, next) => {
         if (!artisan) {
             res.status(404).json({
                 success: false,
-                message: 'Artisan profile not found',
+                message: "Artisan profile not found",
             });
             return;
         }
         // 🔥 FETCH SUBSCRIPTION PLAN FROM DATABASE (NOT HARDCODED)
-        const SubscriptionSettings = require('../models/SubscriptionSettings').default;
+        const SubscriptionSettings = require("../models/SubscriptionSettings").default;
         const plan = await SubscriptionSettings.findOne({ tier, isActive: true });
         if (!plan) {
             res.status(404).json({
                 success: false,
-                message: 'Subscription plan not found or inactive',
+                message: "Subscription plan not found or inactive",
             });
             return;
         }
@@ -191,7 +203,7 @@ const createSubscription = async (req, res, next) => {
         // Create payment intent for subscription
         const paymentIntent = await stripe_1.stripe.paymentIntents.create({
             amount: Math.round(plan.price * 100),
-            currency: 'usd',
+            currency: "usd",
             metadata: {
                 artisanId: artisan._id.toString(),
                 subscriptionTier: tier,
@@ -217,13 +229,13 @@ const confirmSubscription = async (req, res, next) => {
         const userId = req.user?.userId;
         const { paymentIntentId } = req.body;
         const paymentIntent = await stripe_1.stripe.paymentIntents.retrieve(paymentIntentId);
-        if (paymentIntent.status === 'succeeded') {
+        if (paymentIntent.status === "succeeded") {
             const { artisanId, subscriptionTier, duration } = paymentIntent.metadata;
             const artisan = await Artisan_1.default.findById(artisanId);
             if (!artisan) {
                 res.status(404).json({
                     success: false,
-                    message: 'Artisan not found',
+                    message: "Artisan not found",
                 });
                 return;
             }
@@ -231,7 +243,7 @@ const confirmSubscription = async (req, res, next) => {
             if (artisan.userId.toString() !== userId) {
                 res.status(403).json({
                     success: false,
-                    message: 'Not authorized',
+                    message: "Not authorized",
                 });
                 return;
             }
@@ -242,12 +254,12 @@ const confirmSubscription = async (req, res, next) => {
             // Create transaction record
             await Transaction_1.default.create({
                 userId,
-                type: 'subscription',
+                type: "subscription",
                 amount: paymentIntent.amount / 100,
                 platformFee: 0, // No platform fee on subscription purchases
                 netAmount: paymentIntent.amount / 100,
                 stripePaymentIntentId: paymentIntentId,
-                status: 'completed',
+                status: "completed",
                 metadata: {
                     subscriptionTier,
                     duration: parseInt(duration),
@@ -255,18 +267,22 @@ const confirmSubscription = async (req, res, next) => {
                     newPlatformFeePercentage: paymentIntent.metadata.platformFeePercentage,
                 },
             });
+            await (0, notificationService_1.createNotification)({
+                userId: artisan.userId,
+                ...notificationService_1.NotificationTemplates.subscriptionActivated(subscriptionTier, parseInt(duration), parseFloat(paymentIntent.metadata.platformFeePercentage)),
+            });
             res.status(200).json({
                 success: true,
-                message: 'Subscription activated',
+                message: "Subscription activated",
                 artisan,
-                // 🔥 SHOW ARTISAN THEIR NEW COMMISSION RATE
+                //  SHOW ARTISAN THEIR NEW COMMISSION RATE
                 newPlatformFeePercentage: paymentIntent.metadata.platformFeePercentage,
             });
         }
         else {
             res.status(400).json({
                 success: false,
-                message: 'Payment not successful',
+                message: "Payment not successful",
             });
         }
     }
@@ -279,27 +295,27 @@ exports.confirmSubscription = confirmSubscription;
 // WEBHOOK HANDLER
 // ============================================
 const webhookHandler = async (req, res) => {
-    const sig = req.headers['stripe-signature'];
+    const sig = req.headers["stripe-signature"];
     if (!process.env.STRIPE_WEBHOOK_SECRET) {
-        console.log('Webhook secret not configured, skipping webhook');
+        console.log("Webhook secret not configured, skipping webhook");
         res.status(200).json({ received: true });
         return;
     }
     try {
         const event = stripe_1.stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
         switch (event.type) {
-            case 'payment_intent.succeeded':
+            case "payment_intent.succeeded":
                 const paymentIntent = event.data.object;
-                console.log('Payment succeeded:', paymentIntent.id);
+                console.log("Payment succeeded:", paymentIntent.id);
                 // Additional handling if needed
                 break;
-            case 'payment_intent.payment_failed':
+            case "payment_intent.payment_failed":
                 const failedIntent = event.data.object;
                 const booking = await Booking_1.default.findOne({
                     paymentIntentId: failedIntent.id,
                 });
                 if (booking) {
-                    booking.paymentStatus = 'failed';
+                    booking.paymentStatus = "failed";
                     await booking.save();
                 }
                 break;
@@ -309,7 +325,7 @@ const webhookHandler = async (req, res) => {
         res.status(200).json({ received: true });
     }
     catch (error) {
-        console.error('Webhook error:', error.message);
+        console.error("Webhook error:", error.message);
         res.status(400).send(`Webhook Error: ${error.message}`);
     }
 };
