@@ -70,7 +70,7 @@ exports.getAllPlans = getAllPlans;
 const upsertSubscriptionPlan = async (req, res, next) => {
     try {
         const { tier } = req.params;
-        if (!['basic', 'premium'].includes(tier)) {
+        if (!['free', 'basic', 'premium'].includes(tier)) {
             res.status(400).json({
                 success: false,
                 message: 'Invalid subscription tier. Must be "basic" or "premium"',
