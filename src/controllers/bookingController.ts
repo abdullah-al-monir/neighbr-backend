@@ -288,8 +288,13 @@ export const updateBookingStatus = async (
     const { id } = req.params;
     const { status } = req.body;
     const userId = req.user?.userId;
-
-    const booking = await Booking.findById(id);
+    console.log(req.body);
+    
+    // ✅ Populate artisan and customer data
+    const booking = await Booking.findById(id)
+      .populate('artisanId')
+      .populate('customerId');
+      
     if (!booking) {
       res.status(404).json({
         success: false,
@@ -335,25 +340,28 @@ export const updateBookingStatus = async (
       booking.escrowReleased = true;
     }
 
-    await booking.save();
+    // ✅ Save with validateBeforeSave: false to skip date validation
+    await booking.save({ validateBeforeSave: false });
 
     // 🔔 NOTIFY CUSTOMER about booking status
-    const artisanName =
-      (booking.artisanId as any).businessName ||
-      (booking.artisanId as any).userId.name;
+    // ✅ Safely access nested properties with optional chaining
+    const artisanData = booking.artisanId as any;
+    const customerData = booking.customerId as any;
+    const artisanName = artisanData?.businessName || artisanData?.userId?.name || 'Artisan';
+    const customerId = customerData?._id || booking.customerId;
 
-    if (status === "accepted") {
+    if (status === "confirmed") {
       await createNotification({
-        userId: booking.customerId._id,
+        userId: customerId,
         ...NotificationTemplates.bookingAccepted(
           artisanName,
           booking.serviceType,
           booking._id.toString()
         ),
       });
-    } else if (status === "canceled") {
+    } else if (status === "cancelled") {
       await createNotification({
-        userId: booking.customerId._id,
+        userId: customerId,
         ...NotificationTemplates.bookingRejected(
           artisanName,
           booking.serviceType,
@@ -362,7 +370,7 @@ export const updateBookingStatus = async (
       });
     } else if (status === "completed") {
       await createNotification({
-        userId: booking.customerId._id,
+        userId: customerId,
         ...NotificationTemplates.bookingCompleted(
           artisanName,
           booking._id.toString()

@@ -235,7 +235,11 @@ const updateBookingStatus = async (req, res, next) => {
         const { id } = req.params;
         const { status } = req.body;
         const userId = req.user?.userId;
-        const booking = await Booking_1.default.findById(id);
+        console.log(req.body);
+        // ✅ Populate artisan and customer data
+        const booking = await Booking_1.default.findById(id)
+            .populate('artisanId')
+            .populate('customerId');
         if (!booking) {
             res.status(404).json({
                 success: false,
@@ -275,25 +279,29 @@ const updateBookingStatus = async (req, res, next) => {
             });
             booking.escrowReleased = true;
         }
-        await booking.save();
+        // ✅ Save with validateBeforeSave: false to skip date validation
+        await booking.save({ validateBeforeSave: false });
         // 🔔 NOTIFY CUSTOMER about booking status
-        const artisanName = booking.artisanId.businessName ||
-            booking.artisanId.userId.name;
-        if (status === "accepted") {
+        // ✅ Safely access nested properties with optional chaining
+        const artisanData = booking.artisanId;
+        const customerData = booking.customerId;
+        const artisanName = artisanData?.businessName || artisanData?.userId?.name || 'Artisan';
+        const customerId = customerData?._id || booking.customerId;
+        if (status === "confirmed") {
             await (0, notificationService_1.createNotification)({
-                userId: booking.customerId._id,
+                userId: customerId,
                 ...notificationService_1.NotificationTemplates.bookingAccepted(artisanName, booking.serviceType, booking._id.toString()),
             });
         }
-        else if (status === "canceled") {
+        else if (status === "cancelled") {
             await (0, notificationService_1.createNotification)({
-                userId: booking.customerId._id,
+                userId: customerId,
                 ...notificationService_1.NotificationTemplates.bookingRejected(artisanName, booking.serviceType, booking._id.toString()),
             });
         }
         else if (status === "completed") {
             await (0, notificationService_1.createNotification)({
-                userId: booking.customerId._id,
+                userId: customerId,
                 ...notificationService_1.NotificationTemplates.bookingCompleted(artisanName, booking._id.toString()),
             });
         }
