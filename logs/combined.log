@@ -3727,3 +3727,6 @@
 {"level":"info","message":"Serving static images from: F:\\Projects\\neighbr\\neighbr-backend\\public\\uploads\\images at path: /api/images","timestamp":"2025-12-30T10:41:43.973Z"}
 {"level":"info","message":"Server running in development mode on port 5000","timestamp":"2025-12-30T10:41:43.976Z"}
 {"level":"info","message":"MongoDB Connected: ac-y8cb1h1-shard-00-00.2nmbwuk.mongodb.net","timestamp":"2025-12-30T10:41:44.558Z"}
+{"level":"info","message":"Serving static images from: F:\\Projects\\neighbr\\neighbr-backend\\public\\uploads\\images at path: /api/images","timestamp":"2025-12-30T16:49:21.479Z"}
+{"level":"info","message":"Server running in development mode on port 5000","timestamp":"2025-12-30T16:49:21.483Z"}
+{"level":"info","message":"MongoDB Connected: ac-y8cb1h1-shard-00-00.2nmbwuk.mongodb.net","timestamp":"2025-12-30T16:49:22.112Z"}
