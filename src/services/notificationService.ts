@@ -105,7 +105,7 @@ export const NotificationTemplates = {
     type: "booking_accepted",
     title: "✅ Booking Accepted",
     message: `${artisanName} accepted your ${serviceType} booking`,
-    link: `/my-bookings/${bookingId}`,
+    link: `/booking/${bookingId}`,
     metadata: { bookingId },
   }),
 

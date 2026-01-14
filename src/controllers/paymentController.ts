@@ -75,7 +75,6 @@ export const createPaymentIntent = async (
         bookingId: booking._id.toString(),
         customerId: userId,
         artisanId: booking.artisanId.toString(),
-        // 🔥 STORE PLATFORM FEE INFO IN METADATA
         platformFeePercentage: platformFeePercentage.toString(),
         platformFee: platformFee.toFixed(2),
         subscriptionTier: artisan.subscriptionTier,
@@ -90,7 +89,6 @@ export const createPaymentIntent = async (
       success: true,
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id,
-      // 🔥 RETURN FEE INFO TO FRONTEND (OPTIONAL - FOR DISPLAY)
       platformFeePercentage,
       platformFee: platformFee.toFixed(2),
     });
